@@ -18,29 +18,11 @@ plt.rcParams['ytick.major.size'] = 6
 # %%
 ds = xr.open_dataset("ipns://latest.orcestra-campaign.org/products/Radiosondes/RS_ORCESTRA_level2.zarr", engine="zarr")
 # %%
-## Color Sets
+# Colors
 
-color_sets = [
-    ["red", "blue", "green"], #0
-    ["darkorange", "darkblue", "lime"], #1
-    ["crimson", "royalblue", "darkgreen"], #2
-    ["tomato", "mediumblue", "forestgreen"], #3
-    ["firebrick", "cornflowerblue", "mediumseagreen"], #4
-    ["darkred", "dodgerblue", "springgreen"], #5
-    ["orangered", "blueviolet", "teal"], #6
-    ["indianred", "deepskyblue", "mediumspringgreen"], #7
-    ["chocolate", "navy", "chartreuse"], #8
-    ["gold", "purple", "darkcyan"], #9
-    ["gold", "darkblue", "crimson"], #10
-    ["#BF312D", "darkblue", "#F6CA4C"] #11
-]
-
-active_color_set_index = 11
-
-active_colors = color_sets[active_color_set_index]
-color_INMG = active_colors[0]
-color_Meteor = active_colors[1]
-color_BCO = active_colors[2]
+color_INMG = "#BF312D"
+color_Meteor = "darkblue"
+color_BCO = "#F6CA4C"
 # %%
 def IWV_computation(ds, valid_altitude_threshold=15000, approx_alt_max=3000, gap_threshold=500):
 
