@@ -31,7 +31,7 @@ plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
 
 # %%
-ds = xr.open_dataset("ipns://latest.orcestra-campaign.org/products/Radiosondes/RS_ORCESTRA_level2.zarr", engine="zarr")
+ds = xr.open_dataset("ipns://latest.orcestra-campaign.org/products/Radiosondes/RAPSODI_RS_ORCESTRA_level2.zarr", engine="zarr")
 #ds = xr.open_dataset("/Users/marius/ownCloud/PhD/12_Orcestra_Campaign/00_ORCESTRA_Radiosondes_Winkler/00_data_for_IPFS/RS_ORCESTRA_level2.zarr", engine="zarr")
 #ds_osc = xr.open_dataset("ipfs://QmVsFoFCSU661EWukv5W2ponDVz46zmxgzXRpPZ1fXsbkp", engine="zarr")
 PLATFORM = 'BCO'
