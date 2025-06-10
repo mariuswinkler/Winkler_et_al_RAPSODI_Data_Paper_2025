@@ -228,7 +228,7 @@ def step_0_do_nothing(ds, TITLE_STRING):
 # %%
 step_0_do_nothing(
     ds,
-    TITLE_STRING="Step 0: All Radiosondes"
+    TITLE_STRING="Step 0 - Baseline Test: All Radiosondes"
 )
 # %%
 def step_1_find_min_height(ds):
@@ -286,7 +286,7 @@ def step_1_find_min_height(ds):
 
     def plot_iwv_vs_altitude_threshold(thresholds, results, percentages):
         platform_colors = {"BCO": color_BCO, "RV_Meteor": color_Meteor, "INMG": color_INMG}
-        fig, ax1 = plt.subplots(figsize=(10, 5))
+        fig, ax1 = plt.subplots(figsize=(10, 7))
 
         ax2 = ax1.twinx()
 
@@ -403,7 +403,7 @@ def step_2_IWV_over_mixed_layer_height(ds, valid_altitude_threshold):
 
     def plot_iwv_vs_mlh(mlh_range, results, percentages):
         platform_colors = {"BCO": color_BCO, "RV_Meteor": color_Meteor, "INMG": color_INMG}
-        fig, ax1 = plt.subplots(figsize=(10, 5))
+        fig, ax1 = plt.subplots(figsize=(10, 7))
         ax2 = ax1.twinx()
 
         for platform in results:
@@ -526,7 +526,7 @@ def step_3_IWV_over_max_gap_size(ds, valid_altitude_threshold=8000, approx_alt_m
         n_initial = ds.launch_time.size
         n_remaining = filtered_ds.q.notnull().any(dim="alt").sum().item()
         remaining_percentage = 100 * n_remaining / n_initial
-        print(f"approx_alt_max={approx_alt_max} m → {n_remaining} / {n_initial} ({remaining_percentage:.1f}%)")
+        print(f"gap_threshold={gap_threshold} m → {n_remaining} / {n_initial} ({remaining_percentage:.1f}%)")
 
         platform_colors = {"BCO": color_BCO, "RV_Meteor": color_Meteor, "INMG": color_INMG}
         mean_iwv_dict = {}
@@ -550,7 +550,7 @@ def step_3_IWV_over_max_gap_size(ds, valid_altitude_threshold=8000, approx_alt_m
 
     def plot(gap_values, results, percentages):
         platform_colors = {"BCO": color_BCO, "RV_Meteor": color_Meteor, "INMG": color_INMG}
-        fig, ax1 = plt.subplots(figsize=(10, 5))
+        fig, ax1 = plt.subplots(figsize=(10, 7))
         ax2 = ax1.twinx()
 
         for platform in results:
@@ -562,7 +562,7 @@ def step_3_IWV_over_max_gap_size(ds, valid_altitude_threshold=8000, approx_alt_m
         ax1.set_ylabel("Mean IWV / kgm$^{-2}$")
         ax2.set_ylabel("Remaining Soundings (%)")
         ax1.set_title("IWV and Sounding Coverage vs Gap Threshold")
-
+        ax1.set_title("Step 3: Mean IWV vs Gap Threshold \nMinimum Altitude Threshold = "+f"{valid_altitude_threshold} m \nMixed Layer Height = {approx_alt_max} m")
         ax1.set_ylim(20, 70)
         ax2.set_ylim(0, 100)
 
