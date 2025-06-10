@@ -159,7 +159,7 @@ def IWV_computation(ds, valid_altitude_threshold=15000, approx_alt_max=3000, gap
 IWV_computation(
     ds,
     valid_altitude_threshold=8000,
-    approx_alt_max=1000,
+    approx_alt_max=600,
     gap_threshold=500
 )
 # %%

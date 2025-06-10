@@ -113,6 +113,7 @@ meteomodem_platforms = ['INMG']
 
 fig, axs = plt.subplots(1, len(variables_to_plot), figsize=(15, 6),
                         gridspec_kw={"wspace": 0.4, "hspace": 0.6}, sharey=True)
+fig.suptitle("Ascent-Descent Mean Difference by Manufacturer", fontsize=SIZE + 2, y=1.05)
 axs = axs.flatten()
 
 for i, var in enumerate(variables_to_plot):

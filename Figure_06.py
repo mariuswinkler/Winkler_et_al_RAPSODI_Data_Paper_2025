@@ -83,7 +83,6 @@ plt.rcParams['ytick.direction'] = 'in'
 plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
 
-
 for ds in [ds_BCO, ds_MET, ds_INMG]:
     ds["mse"] = mtfunc.moist_static_energy(ds.ta, ds.alt, ds.q) / 1000
 
