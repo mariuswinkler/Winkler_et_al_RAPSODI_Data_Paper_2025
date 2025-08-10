@@ -108,7 +108,7 @@ def IWV_computation(
                 color=platform_colors[platform], histtype='stepfilled')
         ax.hist(platform_iwv, bins=25, density=True, alpha=1,
                 label=f"{platform_names[platform]}",
-                histtype='step', linewidth=2, color=platform_colors[platform])
+                histtype='step', linewidth=2, color=platform_colors[platform], clip_on=False)
 
         # Bold x-axis tick for mean
         if platform_iwv.size > 0:
@@ -117,8 +117,8 @@ def IWV_computation(
                       color=platform_colors[platform], linewidth=3, zorder=10, clip_on=False)
             print(platform, "Mean IWV", mean_iwv)
 
-    ax.set_xlim(30, 70)
-    ax.set_ylim(0, 0.13)
+    ax.set_xlim(30, 75)
+    ax.set_ylim(0, 0.10)
     ax.set_xlabel("IWV / kgm$^{-2}$")
     ax.set_ylabel("Probability Density")
     ax.spines[["left", "bottom"]].set_position(("outward", 20))
