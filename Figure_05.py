@@ -97,7 +97,7 @@ def plot_iwv_histograms(
 # 1) Filter first (Steps 1–4)
 ds_filtered = filter_profiles(
     ds,
-    valid_altitude_threshold=10000,  # Step 2 threshold in meters
+    valid_altitude_threshold=8000,  # Step 2 threshold in meters
     near_surface_h=1000,            # Step 4: near-surface height range (m)
     near_surface_min_pts=50,        # Step 4: min points below 1 km
     max_missing_frac=0.20,          # Step 3: allow up to 20% missing
