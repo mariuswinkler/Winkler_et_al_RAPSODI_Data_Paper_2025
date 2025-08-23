@@ -37,7 +37,7 @@ fig, ax = plt.subplots(figsize=(width_cm / 2.54, height_cm / 2.54))
 # === Collect all rain means
 rain_means = []
 for i in range(len(osc_RS.release_time)):
-    lt = osc_RS.sortby("release_time").release_time[i].values
+    lt = osc_RS.release_time[i].values
     start_time = np.datetime64(lt)
     end_time = start_time + np.timedelta64(20, 'm')
     rain_slice = pr_data.rain_rate_qc.sel(time=slice(start_time, end_time))
