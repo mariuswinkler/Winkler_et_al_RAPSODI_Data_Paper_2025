@@ -1,2 +1,12 @@
+# Ignore Jupyter notebooks
 *.ipynb
+
+# Ignore all PNG, SVG, and KEY files
+*.png
 *.svg
+*.key
+*.jpg
+*.DS_store
+
+# But keep this specific PNG
+!Fig03_collage_v3.png
