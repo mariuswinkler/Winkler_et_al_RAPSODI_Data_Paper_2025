@@ -3,7 +3,8 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 
-ds = xr.open_dataset("ipfs://bafybeihd6kyscsf7vzjnlivdtdd4fh5epuqqfqk7ldj6d2k634fuse2lay", engine="zarr")
+#ds = xr.open_dataset("ipfs://bafybeihd6kyscsf7vzjnlivdtdd4fh5epuqqfqk7ldj6d2k634fuse2lay", engine="zarr")
+ds = xr.open_dataset("/Users/marius/ownCloud/PhD/12_Orcestra_Campaign/00_ORCESTRA_Radiosondes_Winkler/level2/merged_dataset/for_IPFS/RS_ORCESTRA_level2_v4.0.7_for_IPFS.nc")
 
 # %%
 def platform_summary(ds, platform):
@@ -17,8 +18,8 @@ def platform_summary(ds, platform):
     start_date = str(pd.to_datetime(ds_plat.launch_time.values.min()).date())
     end_date   = str(pd.to_datetime(ds_plat.launch_time.values.max()).date())
 
-    # platform altitude (mean over all soundings)
-    plat_alt = float(ds_plat.alt.isel(alt=0).mean().item())
+    # platform heightitude (mean over all soundings)
+    plat_height = float(ds_plat.height.isel(height=0).mean().item())
 
     return {
         "Platform": platform,
@@ -26,7 +27,7 @@ def platform_summary(ds, platform):
         "Number of descents": n_descent,
         "Start date": start_date,
         "End date": end_date,
-        "Platform altitude / m": plat_alt,
+        "Platform altitude / m": plat_height,
     }
 
 # Apply for each platform
@@ -57,7 +58,7 @@ def overall_descent_stats(ds, threshold_hpa=980.0):
     n_desc_profiles = ds_desc.sizes.get("launch_time", 0)
 
     # % of descents that reached >= threshold_hpa (near-surface) pressure at any level
-    reached_mask = (ds_desc["p"].max(dim="alt") >= threshold_hpa * 100.0)
+    reached_mask = (ds_desc["p"].max(dim="height") >= threshold_hpa * 100.0)
     n_reached = int(reached_mask.sum().item()) if n_desc_profiles > 0 else 0
     reached_pct = float("nan") if n_desc_profiles == 0 else (n_reached / n_desc_profiles) * 100.0
 
@@ -70,4 +71,10 @@ def overall_descent_stats(ds, threshold_hpa=980.0):
 # --- Apply for all platforms combined ---
 overall_descent_stats(ds, threshold_hpa=980.0)
 
+# %%
+156+327+141
+# %%
+121+313+135
+# %%
+569+624
 # %%

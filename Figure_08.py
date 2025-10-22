@@ -19,7 +19,7 @@ plt.rcParams['ytick.direction'] = 'in'
 plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
 # %%
-ds = xr.open_dataset("ipfs://bafybeihd6kyscsf7vzjnlivdtdd4fh5epuqqfqk7ldj6d2k634fuse2lay", engine="zarr")
+ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
 
 # %%
 PLATFORM = 'BCO'
@@ -31,13 +31,13 @@ ds_MET = ds.where(ds.platform == PLATFORM, drop=True)
 #ds_MET.sel(launch_time=(ds_MET['ascent_flag'] == 0)).sel(launch_time="2024-09-21").launch_time
 # %%
 valid_mask = ds["lat"].notnull()
-valid_mask_reversed = valid_mask.isel(alt=slice(None, None, -1))
-max_alt_idx = valid_mask_reversed.argmax(dim="alt")
-max_alt_idx = ds.sizes["alt"] - 1 - max_alt_idx
-max_altitudes = ds["alt"].isel(alt=max_alt_idx)
-median_max_altitude = np.nanmedian(max_altitudes)
+valid_mask_reversed = valid_mask.isel(height=slice(None, None, -1))
+max_height_idx = valid_mask_reversed.argmax(dim="height")
+max_height_idx = ds.sizes["height"] - 1 - max_height_idx
+max_heights = ds["height"].isel(height=max_height_idx)
+median_max_height = np.nanmedian(max_heights)
 
-print(f"Median of Maximum Altitude: {median_max_altitude:.2f} meters")
+print(f"Median of Maximum height: {median_max_height:.2f} meters")
 # %%
 ## Color Sets
 color_sets = [
@@ -146,8 +146,8 @@ skew = SkewT(fig, rotation=45)
 skew.ax.set_position(gs_subplots[0].get_position(fig))
 skew.ax.set_subplotspec(gs_subplots[0])
 
-skew.plot(p_met*100, T_met*2, color='black', linewidth=LW, label="Mean Temperature")
-skew.plot(p_met*100, dp_met*2, color='black', linewidth=LW, linestyle='--', label="Mean Dew Point")
+skew.plot(p_met*100, T_met*2, color='black', linewidth=LW, label="Mean Temperature $\overline{\mathrm{T}}$")
+skew.plot(p_met*100, dp_met*2, color='black', linewidth=LW, linestyle='--', label="Mean Dew Point $\overline{\mathrm{T}}_{\mathrm{d}}$")
 skew.plot(p_met*100, T_met*2, color=color_BCO, linewidth=LW, label="BCO")
 skew.plot(p_met*100, dp_met*2, color=color_Meteor, linewidth=LW, label="R/V Meteor")
 
@@ -197,8 +197,8 @@ skew.ax.yaxis.grid(False)
 
 # === Difference plot on right ===
 ax_diff = fig.add_subplot(gs_subplots[1], sharey=skew.ax)
-ax_diff.plot(T_abs_diff, p_bco, color='black', linewidth=LW, label='|T (R/V Meteor - BCO)|', zorder=10)
-ax_diff.plot(dp_abs_diff, p_bco, color='gray', linewidth=LW, label='|dp (R/V Meteor - BCO)|')
+ax_diff.plot(T_abs_diff, p_bco, color='black', linewidth=LW, label='|$\overline{\mathrm{T}}$ (R/V Meteor - BCO)|', zorder=10)
+ax_diff.plot(dp_abs_diff, p_bco, color='gray', linewidth=LW, label='|$\overline{\mathrm{T}}_{\mathrm{d}}$ (R/V Meteor - BCO)|')
 
 
 ax_diff.set_xlim(0, 4)  # Adjust if needed

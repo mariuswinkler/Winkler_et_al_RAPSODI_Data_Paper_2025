@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 
 # %%
-ds = xr.open_dataset("ipfs://bafybeihd6kyscsf7vzjnlivdtdd4fh5epuqqfqk7ldj6d2k634fuse2lay", engine="zarr")
+ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
 
 VAI_ASC = "Vaisala_Geopotential_Height/ALL_gps_geopot_binned10m_ascent.csv"
 VAI_DES = "Vaisala_Geopotential_Height/ALL_gps_geopot_binned10m_descent.csv"
@@ -41,7 +41,7 @@ def get_diff_from_ds(ds_in, var):
 # Meteomodem differences
 ds_m = ds.where(ds.platform.isin(meteomodem_platforms), drop=True)
 diff_m = {var: get_diff_from_ds(ds_m, var) for var in ['p', 'ta', 'rh', 'wspd']}
-z_m = ds_m.alt
+z_m = ds_m.height
 
 # ---- Load Vaisala (CSV) ----
 def load_vaisala_diff(asc_csv, des_csv):
@@ -133,4 +133,7 @@ plt.savefig("./Figures/Fig13_Appendix_Histogram_Diff_Ascent_Descent_Combined.svg
 plt.savefig("./Figures/Fig13_Appendix_Histogram_Diff_Ascent_Descent_Combined.png",
             format='png', facecolor='white', bbox_inches="tight", dpi=150)
 plt.show()
+# %%
+
+ds
 # %%

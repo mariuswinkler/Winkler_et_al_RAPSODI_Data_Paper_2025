@@ -23,8 +23,7 @@ plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
 
 # %%
-ds = xr.open_dataset("ipfs://bafybeihd6kyscsf7vzjnlivdtdd4fh5epuqqfqk7ldj6d2k634fuse2lay", engine="zarr")
-
+ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
 # %%
 PLATFORM = 'BCO'
 ds_BCO = ds.where(ds.platform == PLATFORM, drop=True)
@@ -135,7 +134,7 @@ inset2.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
 def plot_the_dot(ds, ax):
     flight_lon = ds.lon
     flight_lat = ds.lat
-    altitude = ds.alt / 1000  # Convert to km
+    altitude = ds.height / 1000  # Convert to km
 
     out_of_bounds_mask = (
         (flight_lon < -65) | (flight_lon > -15) |
@@ -155,22 +154,22 @@ def plot_the_dot(ds, ax):
 # === Loop over altitudes and plot ===
 sc = None
 for alt in altitudes_merged:
-    ds_slice_main = ds.where(ds['ascent_flag'] == 0, drop=True).sel(alt=alt, method='nearest').compute()
+    ds_slice_main = ds.where(ds['ascent_flag'] == 0, drop=True).sel(height=alt, method='nearest').compute()
     sc = plot_the_dot(ds_slice_main, main_ax)
 
-    ds_slice_bco = ds.where(ds['ascent_flag'] == 0, drop=True).sel(alt=alt, method='nearest').compute() #ds_BCO.sel(alt=alt, method='nearest').compute()
+    ds_slice_bco = ds.where(ds['ascent_flag'] == 0, drop=True).sel(height=alt, method='nearest').compute() #ds_BCO.sel(alt=alt, method='nearest').compute()
     sc = plot_the_dot(ds_slice_bco, inset1)
 
-    ds_slice_inmg = ds_INMG.where(ds_INMG['ascent_flag'] == 0, drop=True).sel(alt=alt, method='nearest').compute()
+    ds_slice_inmg = ds_INMG.where(ds_INMG['ascent_flag'] == 0, drop=True).sel(height=alt, method='nearest').compute()
     plot_the_dot(ds_slice_inmg, inset2)
     
-    ds_slice_main = ds.where(ds['ascent_flag'] == 1, drop=True).sel(alt=alt, method='nearest').compute()
+    ds_slice_main = ds.where(ds['ascent_flag'] == 1, drop=True).sel(height=alt, method='nearest').compute()
     sc = plot_the_dot(ds_slice_main, main_ax)
 
-    ds_slice_bco = ds.where(ds['ascent_flag'] == 1, drop=True).sel(alt=alt, method='nearest').compute() #ds_BCO.sel(alt=alt, method='nearest').compute()
+    ds_slice_bco = ds.where(ds['ascent_flag'] == 1, drop=True).sel(height=alt, method='nearest').compute() #ds_BCO.sel(alt=alt, method='nearest').compute()
     plot_the_dot(ds_slice_bco, inset1)
 
-    ds_slice_inmg = ds_INMG.where(ds_INMG['ascent_flag'] == 1, drop=True).sel(alt=alt, method='nearest').compute()
+    ds_slice_inmg = ds_INMG.where(ds_INMG['ascent_flag'] == 1, drop=True).sel(height=alt, method='nearest').compute()
     plot_the_dot(ds_slice_inmg, inset2)
 
 # === Bounding boxes on main_ax ===
@@ -196,7 +195,7 @@ inset2.text(0.47, 1.9, "(b) INMG", transform=main_ax.transAxes, fontsize=SIZE+5)
 # === Colorbar on the far right ===
 cbar_ax = fig.add_axes([0.82, 0.058, 0.015, 0.89])
 cbar = plt.colorbar(mappable=sc, cax=cbar_ax)
-cbar.set_label("Altitude / km")
+cbar.set_label("Height / km")
 
 # Save or show
 plt.savefig('./Figures/Fig01_scatter_and_insets.png', dpi=400, bbox_inches='tight', facecolor='white')

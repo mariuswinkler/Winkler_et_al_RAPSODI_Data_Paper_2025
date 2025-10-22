@@ -18,7 +18,7 @@ plt.rcParams['ytick.direction'] = 'in'
 plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
 # %%
-ds = xr.open_dataset("ipfs://bafybeihd6kyscsf7vzjnlivdtdd4fh5epuqqfqk7ldj6d2k634fuse2lay", engine="zarr")
+ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
 
 # %%
 PLATFORM = 'BCO'
@@ -30,13 +30,13 @@ ds_MET = ds.where(ds.platform == PLATFORM, drop=True)
 #ds_MET.sel(launch_time=(ds_MET['ascent_flag'] == 0)).sel(launch_time="2024-09-21").launch_time
 # %%
 valid_mask = ds["lat"].notnull()
-valid_mask_reversed = valid_mask.isel(alt=slice(None, None, -1))
-max_alt_idx = valid_mask_reversed.argmax(dim="alt")
-max_alt_idx = ds.sizes["alt"] - 1 - max_alt_idx
-max_altitudes = ds["alt"].isel(alt=max_alt_idx)
-median_max_altitude = np.nanmedian(max_altitudes)
+valid_mask_reversed = valid_mask.isel(height=slice(None, None, -1))
+max_height_idx = valid_mask_reversed.argmax(dim="height")
+max_height_idx = ds.sizes["height"] - 1 - max_height_idx
+max_heights = ds["height"].isel(height=max_height_idx)
+median_max_height = np.nanmedian(max_heights)
 
-print(f"Median of Maximum Altitude: {median_max_altitude:.2f} meters")
+print(f"Median of Maximum height: {median_max_height:.2f} meters")
 # %%
 ## Color Sets
 color_sets = [

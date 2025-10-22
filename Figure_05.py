@@ -20,8 +20,7 @@ plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
 
 # %%
-ds = xr.open_dataset("ipfs://bafybeihd6kyscsf7vzjnlivdtdd4fh5epuqqfqk7ldj6d2k634fuse2lay", engine="zarr")
-
+ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
 # %%
 # Colors
 color_INMG = "#BF312D"
@@ -32,7 +31,7 @@ color_BCO = "#F6CA4C"
 def plot_iwv_histograms(
     iwv_da,                 # 1D DataArray of IWV (coords include launch_time)
     platform_da,            # 1D DataArray of platform aligned with iwv_da
-    valid_altitude_threshold=8000,
+    valid_height_threshold=8000,
     near_surface_min_pts=50,
     max_missing_frac=0.20,
     color_BCO="#F6CA4C",
@@ -77,7 +76,7 @@ def plot_iwv_histograms(
             print(platform, "Mean IWV", mean_iwv)
 
     ax.set_xlim(30, 75)
-    ax.set_ylim(0, 0.10)
+    ax.set_ylim(0, 0.12)
     ax.set_xlabel("IWV / kgm$^{-2}$")
     ax.set_ylabel("Probability Density")
     ax.spines[["left", "bottom"]].set_position(("outward", 20))
@@ -85,7 +84,7 @@ def plot_iwv_histograms(
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.25),
               fancybox=True, shadow=False, ncol=5)
 
-    fname_base = f'Fig05_histo_valid_altitude_threshold={valid_altitude_threshold//1000}km_ns{near_surface_min_pts}_miss{int(max_missing_frac*100)}'
+    fname_base = f'Fig05_histo_valid_altitude_threshold={valid_height_threshold//1000}km_ns{near_surface_min_pts}_miss{int(max_missing_frac*100)}'
     plt.savefig(os.path.join(filepath, fname_base + ".svg"),
                 format="svg", facecolor="white", bbox_inches="tight", dpi=200)
     plt.savefig(os.path.join(filepath, fname_base + ".png"),
@@ -97,11 +96,11 @@ def plot_iwv_histograms(
 # 1) Filter first (Steps 1–4)
 ds_filtered = filter_profiles(
     ds,
-    valid_altitude_threshold=8000,  # Step 2 threshold in meters
+    valid_height_threshold=8000,  # Step 2 threshold in meters
     near_surface_h=1000,            # Step 4: near-surface height range (m)
     near_surface_min_pts=50,        # Step 4: min points below 1 km
     max_missing_frac=0.20,          # Step 3: allow up to 20% missing
-    alt_dim="alt"                   # Name of altitude dimension
+    alt_dim="height"                   # Name of height dimension
 )
 
 # %%
@@ -109,7 +108,7 @@ ds_filtered = filter_profiles(
 iwv_ds = calc_iwv(
     ds_filtered,
     sonde_dim="launch_time",
-    alt_dim="alt",
+    alt_dim="height",
     max_surface_gap_m=300,
     vertical_resolution_m=10,
 )
@@ -118,7 +117,7 @@ iwv_ds = calc_iwv(
 plot_iwv_histograms(
     iwv_da=iwv_ds["iwv"],
     platform_da=ds_filtered["platform"],
-    valid_altitude_threshold=8000,
+    valid_height_threshold=8000,
     near_surface_min_pts=50,
     max_missing_frac=0.20,
     color_BCO="#F6CA4C",

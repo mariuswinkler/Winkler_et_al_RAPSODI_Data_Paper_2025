@@ -1,12 +1,38 @@
-# Ignore Jupyter notebooks
+# ============================================================
+# General / OS-specific
+# ============================================================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.DS_Store
+
+# ============================================================
+# Jupyter notebooks
+# ============================================================
 *.ipynb
 
-# Ignore all PNG, SVG, and KEY files
+# ============================================================
+# Figures and images
+# ============================================================
 *.png
+*.jpg
 *.svg
 *.key
-*.jpg
-*.DS_store
 
-# But keep this specific PNG
+# --- Keep this specific figure ---
 !Fig03_collage_v3.png
+
+# ============================================================
+# Temporary or scratch scripts
+# ============================================================
+zzz_*
+Figure_13.1_using_the_L2_dataset_GPS_dont_use.py
+Figure_13.2_using_the_L2_dataset_dont_use.py
+
+# ============================================================
+# Data directories (large / intermediate)
+# ============================================================
+RAPSODI/
+Vaisala_Geopotential_Height/
+level0_geopot_height/

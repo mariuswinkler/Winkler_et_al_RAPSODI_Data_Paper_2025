@@ -4,6 +4,9 @@ import numcodecs
 import subprocess
 import xarray as xr
 
+# v4.0.7: level1 merged to once netcdf file, level2 interpolated along height.
+
+DS_VERSION = 'v4.0.7'
 DATAPATH_TO_STORE = "../00_data_for_IPFS/"
 CARPATH_TO_STORE  = os.path.join(DATAPATH_TO_STORE, "00_CAR_files/")
 
@@ -22,7 +25,7 @@ def add_to_ipfs_and_export(zarr_dirs, basepath=""):
     cids = {}
     for zarr_dir in zarr_dirs:
         full_path = os.path.join(basepath, zarr_dir) if basepath else zarr_dir
-        print(f"Adding {full_path} to IPFS...")
+        print(f"\n\nAdding {full_path} to IPFS...")
 
         # Run the IPFS add command and get the CID
         result = subprocess.run(
@@ -33,7 +36,7 @@ def add_to_ipfs_and_export(zarr_dirs, basepath=""):
         if result.returncode == 0:
             cid = result.stdout.strip()
             cids[zarr_dir] = cid
-            print(f"✅ Added {zarr_dir} with CID: {cid}")
+            print(f"✅ Added {zarr_dir} with \n \nCID: {cid}\n")
 
             # Display the public IPFS link
             print(f"🌍 Your file {zarr_dir} is now accessible at:")
@@ -59,45 +62,6 @@ def add_to_ipfs_and_export(zarr_dirs, basepath=""):
     print("✅ All files processed.")
     return cids
 
-
-# ============================================================
-# Level - 0: Upload Files to IPFS
-# ============================================================
-
-INMG_RAW_files    = "../level0/INMG"
-BCO_RAW_files     = "../level0/BCO"
-MET_RAW_files     = "../level0/Meteor"
-MET_OSC_RAW_files = "../level0/Meteor_Oscillating"
-
-zarr_dirs = [INMG_RAW_files, BCO_RAW_files, MET_RAW_files, MET_OSC_RAW_files]
-
-cids_level0 = add_to_ipfs_and_export(zarr_dirs)
-
-
-# ============================================================
-# Level - 1: Upload Files to IPFS
-# ============================================================
-
-INMG_RAW_files    = "../level1/INMG"
-BCO_RAW_files     = "../level1/BCO"
-MET_RAW_files     = "../level1/Meteor"
-
-zarr_dirs = [INMG_RAW_files, BCO_RAW_files, MET_RAW_files]
-
-cids_level1 = add_to_ipfs_and_export(zarr_dirs)
-
-
-# ============================================================
-# Level - 2: Upload Files to IPFS
-# ============================================================
-
-DS_VERSION = 'v4.0.4'
-DS_directory = '../level2/merged_dataset/for_IPFS/'
-DS = xr.open_dataset(DS_directory + f"RS_ORCESTRA_level2_{DS_VERSION}_for_IPFS.nc")
-
-# Prepare for IPFS
-# Convert to zarr file format
-
 def get_chunks(dimensions):
     rules = {
         "sounding": 256,
@@ -117,12 +81,33 @@ def get_encoding(dataset):
         for var in dataset.variables if var not in dataset.dims
     }
 
+# ============================================================
+# Level - 0: Upload Files to IPFS
+# ============================================================
 
-# RAPSODI Radiosondes
-DS_zarr_file = "RAPSODI_RS_ORCESTRA_level2.zarr"
+INMG_RAW_files    = "../level0/INMG"
+BCO_RAW_files     = "../level0/BCO"
+MET_RAW_files     = "../level0/Meteor"
+MET_OSC_RAW_files = "../level0/Meteor_Oscillating"
+
+zarr_dirs = [INMG_RAW_files, BCO_RAW_files, MET_RAW_files, MET_OSC_RAW_files]
+
+print(f"\nRunning IPFS add for Level 0 datasets...\n")
+cids_level0 = add_to_ipfs_and_export(zarr_dirs)
+
+
+# ============================================================
+# Level - 1: Upload Files to IPFS
+# ============================================================
+
+DS_directory = '../level1/00_merged_datasets_for_IPFS/for_IPFS/'
+DS = xr.open_dataset(DS_directory + f"RS_ORCESTRA_level1_{DS_VERSION}_for_IPFS.nc")
+
+# RAPSODI Radiosondes Level 1
+DS_zarr_file = "RAPSODI_RS_ORCESTRA_level1.zarr"
 DS.to_zarr(DATAPATH_TO_STORE + DS_zarr_file, encoding=get_encoding(DS), mode="w")
 
-# RAPSODI Oscillating Radiosondes
+# RAPSODI Radiosondes Level 1 - Oscillating
 OSC_DS = xr.open_dataset("../level1/Meteor_Oscillating/RS_ORCESTRA_Meteor_Oscillating_level1_for_IPFS.nc")
 OSC_DS_zarr_file = "RAPSODI_RS_Oscillating_ORCESTRA_level1.zarr"
 OSC_DS.to_zarr(DATAPATH_TO_STORE + OSC_DS_zarr_file, encoding=get_encoding(OSC_DS), mode="w")
@@ -130,10 +115,23 @@ OSC_DS.to_zarr(DATAPATH_TO_STORE + OSC_DS_zarr_file, encoding=get_encoding(OSC_D
 # Upload both to IPFS
 zarr_dirs = [DS_zarr_file, OSC_DS_zarr_file]
 
+print(f"\nRunning IPFS add for Level 1 datasets...\n")
+cids_level1 = add_to_ipfs_and_export(zarr_dirs, basepath=DATAPATH_TO_STORE)
+
+
+# ============================================================
+# Level - 2: Upload Files to IPFS
+# ============================================================
+
+DS_directory = '../level2/merged_dataset/for_IPFS/'
+DS = xr.open_dataset(DS_directory + f"RS_ORCESTRA_level2_{DS_VERSION}_for_IPFS.nc")
+
+# RAPSODI Radiosondes
+DS_zarr_file = "RAPSODI_RS_ORCESTRA_level2.zarr"
+DS.to_zarr(DATAPATH_TO_STORE + DS_zarr_file, encoding=get_encoding(DS), mode="w")
+
+# Upload both to IPFS
+zarr_dirs = [DS_zarr_file]
+
+print(f"\nRunning IPFS add for Level 2 datasets...\n")
 cids_level2 = add_to_ipfs_and_export(zarr_dirs, basepath=DATAPATH_TO_STORE)
-
-
-
-# %%
-# Now dial: ```localhost:5001/webui``` in browser
-# %%

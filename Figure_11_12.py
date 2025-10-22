@@ -35,8 +35,7 @@ plt.rcParams['ytick.direction'] = 'in'
 plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
 # %%
-ds = xr.open_dataset("ipfs://bafybeihd6kyscsf7vzjnlivdtdd4fh5epuqqfqk7ldj6d2k634fuse2lay", engine="zarr")
-
+ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
 
 # %%
 PLATFORM = 'BCO'
@@ -62,13 +61,13 @@ for dset in [ds_BCO, ds_MET, ds_INMG]:
 
 # %%
 valid_mask = ds["lat"].notnull()
-valid_mask_reversed = valid_mask.isel(alt=slice(None, None, -1))
-max_alt_idx = valid_mask_reversed.argmax(dim="alt")
-max_alt_idx = ds.sizes["alt"] - 1 - max_alt_idx
-max_altitudes = ds["alt"].isel(alt=max_alt_idx)
-median_max_altitude = np.nanmedian(max_altitudes)
+valid_mask_reversed = valid_mask.isel(height=slice(None, None, -1))
+max_height_idx = valid_mask_reversed.argmax(dim="height")
+max_height_idx = ds.sizes["height"] - 1 - max_height_idx
+max_heights = ds["height"].isel(height=max_height_idx)
+median_max_height = np.nanmedian(max_heights)
 
-print(f"Median of Maximum Altitude: {median_max_altitude:.2f} meters")
+print(f"Median of Maximum height: {median_max_height:.2f} meters")
 # %%
 ## Color Sets
 color_sets = [
@@ -99,14 +98,14 @@ import pandas as pd
 from pandas import to_datetime
 
 # Assuming you already have ds_INMG, ds_MET, ds_BCO loaded
-# Make copies and adjust altitude to km
+# Make copies and adjust height to km
 ds_INMG_plot = ds_INMG.copy()
 ds_MET_plot  = ds_MET.copy()
 ds_BCO_plot  = ds_BCO.copy()
 
-ds_INMG_plot = ds_INMG_plot.assign_coords(alt=ds_INMG_plot.alt / 1000)
-ds_MET_plot  = ds_MET_plot.assign_coords(alt=ds_MET_plot.alt / 1000)
-ds_BCO_plot  = ds_BCO_plot.assign_coords(alt=ds_BCO_plot.alt / 1000)
+ds_INMG_plot = ds_INMG_plot.assign_coords(height=ds_INMG_plot.height / 1000)
+ds_MET_plot  = ds_MET_plot.assign_coords(height=ds_MET_plot.height / 1000)
+ds_BCO_plot  = ds_BCO_plot.assign_coords(height=ds_BCO_plot.height / 1000)
 
 SIZE = 12
 VARIABLE = 'rh'
@@ -116,15 +115,15 @@ cmap = "YlGnBu"
 
 fig, axs = plt.subplots(3, 1, figsize=(16, 15), gridspec_kw={'hspace': 0.4}, sharex=True)
 
-mesh0 = axs[0].pcolormesh(ds_INMG_plot.launch_time, ds_INMG_plot.alt, ds_INMG_plot[VARIABLE].T,
+mesh0 = axs[0].pcolormesh(ds_INMG_plot.launch_time, ds_INMG_plot.height, ds_INMG_plot[VARIABLE].T,
                           shading="auto", cmap=cmap, norm=norm, rasterized=True)
-mesh1 = axs[1].pcolormesh(ds_MET_plot.launch_time, ds_MET_plot.alt, ds_MET_plot[VARIABLE].T,
+mesh1 = axs[1].pcolormesh(ds_MET_plot.launch_time, ds_MET_plot.height, ds_MET_plot[VARIABLE].T,
                           shading="auto", cmap=cmap, norm=norm, rasterized=True)
-mesh2 = axs[2].pcolormesh(ds_BCO_plot.launch_time, ds_BCO_plot.alt, ds_BCO_plot[VARIABLE].T,
+mesh2 = axs[2].pcolormesh(ds_BCO_plot.launch_time, ds_BCO_plot.height, ds_BCO_plot[VARIABLE].T,
                           shading="auto", cmap=cmap, norm=norm, rasterized=True)
 
 for ax in axs:
-    ax.set_ylabel("Altitude / km", fontsize=SIZE+5)
+    ax.set_ylabel("Height / km", fontsize=SIZE+5)
     ax.set_ylim(0, 25)
     ax.spines[["left", "bottom"]].set_position(("outward", 20))
     ax.spines[["right", "top"]].set_visible(False)
@@ -191,9 +190,9 @@ plt.show()
 
 # Assuming ds_INMG, ds_MET, ds_BCO are already loaded
 # Prepare datasets
-ds_INMG_plot = ds_INMG.copy().assign_coords(alt=ds_INMG.alt / 1000)
-ds_MET_plot  = ds_MET.copy().assign_coords(alt=ds_MET.alt / 1000)
-ds_BCO_plot  = ds_BCO.copy().assign_coords(alt=ds_BCO.alt / 1000)
+ds_INMG_plot = ds_INMG.copy().assign_coords(height=ds_INMG.height / 1000)
+ds_MET_plot  = ds_MET.copy().assign_coords(height=ds_MET.height / 1000)
+ds_BCO_plot  = ds_BCO.copy().assign_coords(height=ds_BCO.height / 1000)
 
 # Plot settings
 SIZE = 12
@@ -210,16 +209,16 @@ ds_BCO_anom  = ds_BCO_plot[VARIABLE]  - ds_BCO_plot[VARIABLE].mean(dim='launch_t
 # Plot
 fig, axs = plt.subplots(3, 1, figsize=(16, 15), gridspec_kw={'hspace': 0.4}, sharex=True)
 
-mesh0 = axs[0].pcolormesh(ds_INMG_plot.launch_time, ds_INMG_plot.alt, ds_INMG_anom.T,
+mesh0 = axs[0].pcolormesh(ds_INMG_plot.launch_time, ds_INMG_plot.height, ds_INMG_anom.T,
                           shading="auto", cmap=cmap, norm=norm, rasterized=True)
-mesh1 = axs[1].pcolormesh(ds_MET_plot.launch_time, ds_MET_plot.alt, ds_MET_anom.T,
+mesh1 = axs[1].pcolormesh(ds_MET_plot.launch_time, ds_MET_plot.height, ds_MET_anom.T,
                           shading="auto", cmap=cmap, norm=norm, rasterized=True)
-mesh2 = axs[2].pcolormesh(ds_BCO_plot.launch_time, ds_BCO_plot.alt, ds_BCO_anom.T,
+mesh2 = axs[2].pcolormesh(ds_BCO_plot.launch_time, ds_BCO_plot.height, ds_BCO_anom.T,
                           shading="auto", cmap=cmap, norm=norm, rasterized=True)
 
 # Axis formatting
 for ax in axs:
-    ax.set_ylabel("Altitude / km", fontsize=SIZE+5)
+    ax.set_ylabel("Height / km", fontsize=SIZE+5)
     ax.set_ylim(0, 25)
     ax.spines[["left", "bottom"]].set_position(("outward", 20))
     ax.spines[["right", "top"]].set_visible(False)
@@ -284,3 +283,5 @@ plt.savefig(filepath + filename, format='png', facecolor='white', bbox_inches="t
 
 plt.show()
 
+
+# %%

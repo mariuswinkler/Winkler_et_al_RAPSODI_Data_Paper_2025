@@ -4,6 +4,7 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
+import re
 from pathlib import Path
 import zipfile
 import xml.etree.ElementTree as ET
@@ -15,9 +16,7 @@ from typing import Union, Optional, List, Dict
 SCRIPT_DIR = Path(__file__).resolve().parent
 BASE_DIR = (SCRIPT_DIR / "../level0/Meteor_Oscillating").resolve()  # repository with .mwx files
 OUT_NC   = (SCRIPT_DIR / "../level1/Meteor_Oscillating/RS_ORCESTRA_Meteor_Oscillating_level1_for_IPFS.nc").resolve()
-# ============================================================
-# XML helpers (read from directory or .mwx/.zip)
-# ============================================================
+
 XML_NAMES = {
     "ptu": "PtuResults.xml",
     "gps": "GpsResults.xml",
@@ -193,7 +192,6 @@ def mixing_ratio_from_p_T_RH(p_Pa: np.ndarray, T_K: np.ndarray, RH_frac: np.ndar
     return mr
 
 
-# alt bounds (nv=2) via midpoints
 def make_alt_bounds(alt: np.ndarray) -> np.ndarray:
     n = alt.size
     b = np.empty((n, 2), dtype=float)
@@ -349,6 +347,122 @@ def pad_to_sample_len(ds: xr.Dataset, target_len: int) -> xr.Dataset:
 
     return ds_padded
 
+def _normalize_sonde_id_ids(ds: xr.Dataset) -> xr.Dataset:
+    if "sonde_id" not in ds.coords:
+        return ds
+    old_attrs = dict(ds["sonde_id"].attrs)
+    vals = ds["sonde_id"].values.astype(str)
+
+    def _shorten(s: str) -> str:
+        parts = s.strip().split("__")
+        plat_raw = parts[0] if parts else s
+        dir_chunk = next((p for p in parts if p.lower() in ("ascent", "descent")), None)
+        ts = None
+        for p in reversed(parts):
+            m = re.search(r"(\d{12})", p)
+            if m:
+                ts = m.group(1); break
+        if dir_chunk and ts:
+            plat = re.sub(r"\s+", "_", plat_raw.strip())
+            out = f"{plat}_{dir_chunk}_{ts}"
+        else:
+            out = re.sub(r"\s+", "_", s.strip())
+        return re.sub(r"_+", "_", out)
+
+    seen, out = {}, []
+    for s in vals:
+        new = _shorten(s)
+        if new in seen:
+            seen[new] += 1; new = f"{new}_{seen[new]}"
+        else:
+            seen[new] = 0
+        out.append(new)
+
+    arr = np.array(out, dtype=f"U{max(1, max(map(len, out)))}")
+
+    sonde_dim = ds["sonde_id"].dims[0] if ds["sonde_id"].ndim == 1 else None
+    if sonde_dim is not None:
+        ds = ds.assign_coords(sonde_id=(sonde_dim, arr))
+    else:
+        ds["sonde_id"].data = arr
+
+    ds["sonde_id"].attrs.update(old_attrs)
+    return ds
+
+_COORD_SPLIT = re.compile(r"[\s,]+")
+
+def _scrub_cf_coordinate_references(ds: xr.Dataset, demoted: set[str]) -> xr.Dataset:
+    demoted = set(map(str, demoted))
+
+    # Per-variable attrs/encodings
+    for name in list(ds.variables):
+        da = ds[name]
+        # attrs["coordinates"]
+        val = da.attrs.get("coordinates")
+        if val:
+            toks = [t for t in _COORD_SPLIT.split(str(val).strip()) if t]
+            kept = [t for t in toks if t not in demoted]
+            if kept:
+                da.attrs["coordinates"] = " ".join(kept)
+            else:
+                da.attrs.pop("coordinates", None)
+
+        # encoding["coordinates"] (writers sometimes stash it here)
+        val = da.encoding.get("coordinates")
+        if val:
+            toks = [t for t in _COORD_SPLIT.split(str(val).strip()) if t]
+            kept = [t for t in toks if t not in demoted]
+            if kept:
+                da.encoding["coordinates"] = " ".join(kept)
+            else:
+                da.encoding.pop("coordinates", None)
+
+    # Very rare, but clean a dataset-level 'coordinates' if present
+    dval = ds.attrs.get("coordinates")
+    if dval:
+        toks = [t for t in _COORD_SPLIT.split(str(dval).strip()) if t]
+        kept = [t for t in toks if t not in demoted]
+        if kept:
+            ds.attrs["coordinates"] = " ".join(kept)
+        else:
+            ds.attrs.pop("coordinates", None)
+
+    return ds
+
+def finalize_level1_before_save(ds: xr.Dataset) -> xr.Dataset:
+    # 1) Rename "sounding" -> "sonde_id" (if present) and ensure it's a coord
+    if "sounding" in ds.dims:
+        ds = ds.rename({"sounding": "sonde_id"})
+    if "sonde_id" not in ds.coords and "sonde_id" in ds.dims:
+        ds = ds.set_coords("sonde_id")
+
+    # 2) Normalize sonde_id strings
+    ds = _normalize_sonde_id_ids(ds)
+
+    if "release_time" in ds:
+        ds = ds.set_coords("release_time")
+
+    # Ensure ordering by launch_time if present
+    if "release_time" in ds.coords:
+        ds = ds.sortby("release_time")
+
+    # Pick vertical sample name dynamically ("sample" preferred; fallback to "level")
+    vertical_idx = "sample" if "sample" in ds.dims else ("level" if "level" in ds.dims else None)
+
+    # 3) Convert all coords to data vars except the whitelist
+    keep_coords = {"sonde_id", "lat", "lon", "flight_time", "release_time", "sample"}
+    if vertical_idx:
+        keep_coords.add(vertical_idx)
+
+    # Never demote any names that are also dimensions
+    to_demote = sorted((set(map(str, ds.coords)) - keep_coords) - set(ds.dims))
+    if to_demote:
+        ds = ds.reset_coords(to_demote, drop=False)
+        ds = _scrub_cf_coordinate_references(ds, set(to_demote))
+
+    return ds
+
+
 def main():
     # collect all .mwx files
     mwx_files = sorted(BASE_DIR.glob("*.mwx"))
@@ -390,6 +504,9 @@ def main():
         featureType="profile",
     ))
 
+    # finalize Level-1 dataset before saving
+    ds_all = finalize_level1_before_save(ds_all)
+
     # write
     OUT_NC.parent.mkdir(parents=True, exist_ok=True)
     ds_all.to_netcdf(OUT_NC)
@@ -398,5 +515,6 @@ def main():
 if __name__ == "__main__":
     main()
 # %%
-xr.open_dataset(OUT_NC)
+ds = xr.open_dataset(OUT_NC)
+ds
 # %%

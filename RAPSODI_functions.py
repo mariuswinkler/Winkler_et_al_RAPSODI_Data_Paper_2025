@@ -5,11 +5,11 @@ Rd = 287.05  # J/(kg*K)
 
 def filter_profiles(
     ds,
-    valid_altitude_threshold=8000,   # m
+    valid_height_threshold=8000,   # m
     near_surface_h=1000,             # m
     near_surface_min_pts=50,         # at least this many valid levels in first 1 km
     max_missing_frac=0.20,           # ≤ 20% missing in 0–8 km
-    alt_dim="alt",
+    alt_dim="height",
 ):
     """
     Apply Steps 1–4 profile filters and return the filtered dataset.
@@ -42,17 +42,17 @@ def filter_profiles(
         return out
 
     # ---- Step 2: profile-extent
-    below = ds1.sel({alt_dim: slice(0, valid_altitude_threshold)})
-    above = ds1.sel({alt_dim: slice(valid_altitude_threshold, None)})
+    below = ds1.sel({alt_dim: slice(0, valid_height_threshold)})
+    above = ds1.sel({alt_dim: slice(valid_height_threshold, None)})
     has_below = has_any_valid(below)
     has_above = has_any_valid(above)
     extent_ok = has_below & has_above
     ds2 = ds1.where(extent_ok, drop=True)
     c2 = ds2.sizes.get("launch_time", 0)
-    print(f"After Step 2 (extent >= {valid_altitude_threshold} m): {c2} ({pct(c2)})")
+    print(f"After Step 2 (extent >= {valid_height_threshold} m): {c2} ({pct(c2)})")
 
     # ---- Step 3: profile-sparsity in 0–8 km
-    rng = ds2.sel({alt_dim: slice(0, valid_altitude_threshold)})
+    rng = ds2.sel({alt_dim: slice(0, valid_height_threshold)})
     triplet_valid = rng.q.notnull() & rng.p.notnull() & rng.ta.notnull()
     valid_counts = triplet_valid.sum(alt_dim)  # per-profile valid count
 
@@ -78,7 +78,7 @@ def filter_profiles(
 def calc_iwv(
     ds,
     sonde_dim="launch_time",
-    alt_dim="alt",
+    alt_dim="height",
     max_surface_gap_m=300,
     vertical_resolution_m=10,
 ):
@@ -127,7 +127,7 @@ def calc_iwv(
         "coordinates": "launch_time lat lon",
         "comment": (
             "Computed as vertical integral of specific humidity times air density "
-            "over altitude. q, ta interpolated linearly; p interpolated log-linearly "
+            "over height. q, ta interpolated linearly; p interpolated log-linearly "
             "with extrapolation. Near-surface q backfilled up to max_surface_gap_m; "
             "profiles with missing near-surface q are masked."
         ),
@@ -143,11 +143,11 @@ def calc_iwv(
 
 def add_IWV(
     ds,
-    valid_altitude_threshold=8000,   # m
+    valid_height_threshold=8000,   # m
     near_surface_h=1000,             # m
     near_surface_min_pts=50,         # at least this many valid levels in first 1 km
     max_missing_frac=0.20,           # ≤ 20% missing in 0–8 km
-    alt_dim="alt",
+    alt_dim="height",
     sonde_dim="launch_time",         # <- match your dataset
     max_surface_gap_m=300,
     vertical_resolution_m=10,
@@ -160,7 +160,7 @@ def add_IWV(
     # 1) Filter with the same routine
     ds_filtered = filter_profiles(
         ds,
-        valid_altitude_threshold=valid_altitude_threshold,
+        valid_height_threshold=valid_height_threshold,
         near_surface_h=near_surface_h,
         near_surface_min_pts=near_surface_min_pts,
         max_missing_frac=max_missing_frac,

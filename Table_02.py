@@ -2,9 +2,10 @@
 import xarray as xr
 import numpy as np
 
-ds = xr.open_dataset("ipfs://bafybeihd6kyscsf7vzjnlivdtdd4fh5epuqqfqk7ldj6d2k634fuse2lay", engine="zarr")
+#ds = xr.open_dataset("ipfs://bafybeihd6kyscsf7vzjnlivdtdd4fh5epuqqfqk7ldj6d2k634fuse2lay", engine="zarr")
+ds = xr.open_dataset("/Users/marius/ownCloud/PhD/12_Orcestra_Campaign/00_ORCESTRA_Radiosondes_Winkler/level2/merged_dataset/for_IPFS/RS_ORCESTRA_level2_v4.0.7_for_IPFS.nc")
 
-ALT_NAME  = "alt"          # meters
+HEIGHT_NAME  = "height"          # meters
 TIME_NAME = "launch_time"  # datetime64
 PLAT_NAME = "platform"
 PLATFORMS = ["BCO", "RV_Meteor", "INMG"]
@@ -12,23 +13,23 @@ PLATFORMS = ["BCO", "RV_Meteor", "INMG"]
 def fmt_time(tval):
     return np.datetime_as_string(np.asarray(tval).astype("datetime64[s]"), unit="s")
 
-def global_extreme_with_alt(sub, da_name, extreme="min"):
-    """Return (value, time, alt_km) for global min/max of sub[da_name].
-       Works for 2-D variables with dims (launch_time, alt)."""
+def global_extreme_with_height(sub, da_name, extreme="min"):
+    """Return (value, time, height_km) for global min/max of sub[da_name].
+       Works for 2-D variables with dims (launch_time, height)."""
     da = sub[da_name]
-    # ensure 2-D over (time, alt)
-    if not ({TIME_NAME, ALT_NAME} <= set(da.dims)):
-        raise ValueError(f"{da_name} must have dims ({TIME_NAME}, {ALT_NAME})")
+    # ensure 2-D over (time, height)
+    if not ({TIME_NAME, HEIGHT_NAME} <= set(da.dims)):
+        raise ValueError(f"{da_name} must have dims ({TIME_NAME}, {HEIGHT_NAME})")
     m = np.isfinite(da)
     if extreme == "min":
-        flat = da.where(m).stack(z=(TIME_NAME, ALT_NAME)).argmin("z").item()
+        flat = da.where(m).stack(z=(TIME_NAME, HEIGHT_NAME)).argmin("z").item()
     else:
-        flat = da.where(m).stack(z=(TIME_NAME, ALT_NAME)).argmax("z").item()
-    it, iz = np.unravel_index(flat, (sub.sizes[TIME_NAME], sub.sizes[ALT_NAME]))
-    val = float(da.isel({TIME_NAME: it, ALT_NAME: iz}))
+        flat = da.where(m).stack(z=(TIME_NAME, HEIGHT_NAME)).argmax("z").item()
+    it, iz = np.unravel_index(flat, (sub.sizes[TIME_NAME], sub.sizes[HEIGHT_NAME]))
+    val = float(da.isel({TIME_NAME: it, HEIGHT_NAME: iz}))
     t   = sub[TIME_NAME].values[it]
-    alt_km = float(sub[ALT_NAME].isel({ALT_NAME: iz})) / 1000.0
-    return val, t, alt_km
+    height_km = float(sub[HEIGHT_NAME].isel({HEIGHT_NAME: iz})) / 1000.0
+    return val, t, height_km
 
 def longest_distance_for_profile(lat, lon):
     """Great-circle distance (km) from first valid point to all points; returns (max_km, iz)."""
@@ -50,10 +51,10 @@ def longest_distance_for_profile(lat, lon):
     return dkm, int(iz)
 
 def longest_distance_global(sub):
-    """Scan each profile; return (best_km, time, alt_km)."""
+    """Scan each profile; return (best_km, time, height_km)."""
     best_dist = np.nan
     best_time = None
-    best_alt_km = np.nan
+    best_height_km = np.nan
     for it in range(sub.sizes[TIME_NAME]):
         lat = sub["lat"].isel({TIME_NAME: it}).values
         lon = sub["lon"].isel({TIME_NAME: it}).values
@@ -61,65 +62,109 @@ def longest_distance_global(sub):
         if np.isfinite(dkm) and (np.isnan(best_dist) or dkm > best_dist):
             best_dist = dkm
             best_time = sub[TIME_NAME].values[it]
-            best_alt_km = float(sub[ALT_NAME].isel({ALT_NAME: iz})) / 1000.0 if iz is not None else np.nan
-    return best_dist, best_time, best_alt_km
+            best_height_km = float(sub[HEIGHT_NAME].isel({HEIGHT_NAME: iz})) / 1000.0 if iz is not None else np.nan
+    return best_dist, best_time, best_height_km
 
-def highest_altitude_global(sub):
-    """Find, for each profile, its maximum valid altitude, then return the overall max and time."""
+def highest_height_global(sub):
+    """Find, for each profile, its maximum valid height, then return the overall max and time."""
     # use presence of lat as validity mask (adjust if you prefer p/notnull)
     valid = sub["lat"].notnull()
-    # last valid index along alt for each profile
-    rev = valid.isel(alt=slice(None, None, -1))
-    last_valid_from_top = rev.argmax("alt")
-    iz_max = sub.sizes["alt"] - 1 - last_valid_from_top
-    # altitude at that index for each profile
-    prof_max_alt_m = sub[ALT_NAME].isel(alt=iz_max)
+    # last valid index along height for each profile
+    rev = valid.isel(height=slice(None, None, -1))
+    last_valid_from_top = rev.argmax("height")
+    iz_max = sub.sizes["height"] - 1 - last_valid_from_top
+    # height at that index for each profile
+    prof_max_height_m = sub[HEIGHT_NAME].isel(height=iz_max)
     # pick profile with largest max
-    it = int(prof_max_alt_m.argmax().item())
-    alt_m = float(prof_max_alt_m.isel({TIME_NAME: it}))
+    it = int(prof_max_height_m.argmax().item())
+    height_m = float(prof_max_height_m.isel({TIME_NAME: it}))
     t = sub[TIME_NAME].values[it]
-    return alt_m / 1000.0, t
+    return height_m / 1000.0, t
+
+def bin_time_seconds_since_launch(sub):
+    """
+    Return time since launch in seconds for each profile.
+    Expects a time coordinate varying along 'height' for each 'launch_time'.
+    """
+    if "time" not in sub:
+        raise ValueError("Dataset must contain a 'time' variable for computing seconds since launch.")
+    
+    # Convert to numpy datetime64[s]
+    time_vals = sub["time"].values.astype("datetime64[s]")
+    # Get the launch times (one per profile)
+    launch_vals = sub[TIME_NAME].values.astype("datetime64[s]")
+    
+    # Broadcast to shape (launch_time, height)
+    t = np.broadcast_to(time_vals, (sub.sizes[TIME_NAME], sub.sizes[HEIGHT_NAME]))
+    t0 = launch_vals[:, np.newaxis]
+    
+    # Compute seconds difference
+    dt_sec = (t - t0).astype("timedelta64[s]").astype(float)
+    return xr.DataArray(dt_sec, dims=(TIME_NAME, HEIGHT_NAME))
+
 
 print("\nEXTREMES BY PLATFORM\n" + "-"*60)
 for plat in PLATFORMS:
     sub = ds.where(ds[PLAT_NAME] == plat, drop=True)
 
     # Coldest temperature (K → °C)
-    t_min_K, t_time, t_alt_km = global_extreme_with_alt(sub, "ta", "min")
+    t_min_K, t_time, t_height_km = global_extreme_with_height(sub, "ta", "min")
     t_min_C = t_min_K - 273.15
 
     # Max & Min wind speed (m/s)
-    w_max, wmax_time, wmax_alt_km = global_extreme_with_alt(sub, "wspd", "max")
-    w_min, wmin_time, wmin_alt_km = global_extreme_with_alt(sub, "wspd", "min")
+    w_max, wmax_time, wmax_height_km = global_extreme_with_height(sub, "wspd", "max")
+    w_min, wmin_time, wmin_height_km = global_extreme_with_height(sub, "wspd", "min")
 
     # Longest distance from launch (km)
-    dist_km, dist_time, dist_alt_km = longest_distance_global(sub)
+    dist_km, dist_time, dist_height_km = longest_distance_global(sub)
 
-    # Highest altitude achieved (km)
-    alt_max_km, alt_time = highest_altitude_global(sub)
+    # Highest height achieved (km)
+    height_max_km, height_time = highest_height_global(sub)
 
     # Lowest pressure (Pa → hPa)
-    p_min_Pa, p_time, p_alt_km = global_extreme_with_alt(sub, "p", "min")
+    p_min_Pa, p_time, p_height_km = global_extreme_with_height(sub, "p", "min")
     p_min_hPa = p_min_Pa / 100.0
 
     print(f"\nPlatform: {plat}")
-    print(f"  Coldest Temperature : {t_min_C:.1f} °C  at {fmt_time(t_time)}  ({t_alt_km:.1f} km)")
-    print(f"  Max. Wind Speed     : {w_max:.1f} m/s  at {fmt_time(wmax_time)}  ({wmax_alt_km:.1f} km)")
-    print(f"  Min. Wind Speed     : {w_min:.1f} m/s  at {fmt_time(wmin_time)}  ({wmin_alt_km:.1f} km)")
-    print(f"  Longest Distance    : {dist_km:.1f} km  at {fmt_time(dist_time)}  ({dist_alt_km:.1f} km)")
-    print(f"  Highest Altitude    : {alt_max_km:.1f} km at {fmt_time(alt_time)}")
-    print(f"  Lowest Pressure     : {p_min_hPa:.1f} hPa at {fmt_time(p_time)}  ({p_alt_km:.1f} km)")
+    print(f"  Coldest Temperature : {t_min_C:.1f} °C  at {fmt_time(t_time)}  ({t_height_km:.1f} km)")
+    print(f"  Max. Wind Speed     : {w_max:.1f} m/s  at {fmt_time(wmax_time)}  ({wmax_height_km:.1f} km)")
+    print(f"  Min. Wind Speed     : {w_min:.1f} m/s  at {fmt_time(wmin_time)}  ({wmin_height_km:.1f} km)")
+    print(f"  Longest Distance    : {dist_km:.1f} km  at {fmt_time(dist_time)}  ({dist_height_km:.1f} km)")
+    print(f"  Highest Height    : {height_max_km:.1f} km at {fmt_time(height_time)}")
+    print(f"  Lowest Pressure     : {p_min_hPa:.1f} hPa at {fmt_time(p_time)}  ({p_height_km:.1f} km)")
 
 
 # %%
 # --- Medians of flight time and distance per platform, split asc/desc ---
 
 def flight_time_for_profile_minutes(sub):
-    """Per-profile flight duration in minutes from seconds-since-launch."""
-    sec_since_launch = bin_time_seconds_since_launch(sub)  # (launch_time, alt)
-    # last (max) finite value along alt per profile
-    dur_sec = sec_since_launch.max(dim="alt", skipna=True)
-    return dur_sec / 60.0  # minutes
+    """
+    Per-profile flight duration (minutes) for the given subset.
+    Uses max(interpolated_time - launch_time) along height.
+    Returns 1D DataArray over launch_time.
+    """
+    if "interpolated_time" not in sub:
+        raise ValueError("Expected 'interpolated_time' with dims (launch_time, height).")
+
+    it = sub["interpolated_time"]                     # datetime64, (launch_time, height)
+    lt = sub[TIME_NAME]                               # datetime64, (launch_time,)
+
+    # Broadcast launch_time to the same shape as interpolated_time
+    lt2d = xr.DataArray(lt).broadcast_like(it)
+
+    # Timedelta array (no astype to datetime64[...]!)
+    dt = it - lt2d                                    # timedelta64, (launch_time, height)
+
+    # Convert to seconds WITHOUT astype: divide by 1 second
+    dt_sec = dt / np.timedelta64(1, "s")              # float seconds
+
+    # Duration per profile = max along height (ignore NaNs)
+    dur_sec = dt_sec.max(dim=HEIGHT_NAME, skipna=True)
+
+    return (dur_sec / 60.0).astype(float)             # minutes
+
+
+
 
 def distance_for_profile_km(sub):
     """Per-profile max great-circle distance (km) from first valid point."""
@@ -147,5 +192,3 @@ for plat in PLATFORMS:
 
         print(f"{plat} ({label}): median flight time = {med_time_min:.1f} min, "
               f"median distance = {med_dist_km:.1f} km")
-
-# %%

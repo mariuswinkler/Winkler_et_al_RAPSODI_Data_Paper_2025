@@ -16,8 +16,7 @@ plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
 
 # %%
-ds = xr.open_dataset("ipfs://bafybeihd6kyscsf7vzjnlivdtdd4fh5epuqqfqk7ldj6d2k634fuse2lay", engine="zarr")
-
+ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
 
 # %%
 PLATFORM = 'BCO'
@@ -53,26 +52,28 @@ color_BCO = active_colors[2]
 
 # %%
 
-# --- Helper: get flight time in seconds from ds['bin_average_time'] and ds['launch_time']
 def bin_time_seconds_since_launch(ds):
     """
-    Interpret ds['bin_average_time'] as epoch nanoseconds and return
-    seconds since ds['launch_time'] (shape: launch_time × alt).
+    Return seconds since launch with shape (launch_time, height).
+    Works whether ds['interpolated_time'] is datetime64[ns] or
+    a numeric value representing ns since epoch.
     """
-    bat = ds['bin_average_time']  # (launch_time, alt), float with NaNs
+    bat = ds['interpolated_time']
 
-    # mask finite values
-    mask = np.isfinite(bat)
+    if np.issubdtype(bat.dtype, np.datetime64):
+        # already datetime: just ensure ns precision
+        bin_ts = bat.astype('datetime64[ns]')
+    else:
+        # numeric ns -> datetime64[ns], preserve NaNs as NaT
+        mask = np.isfinite(bat)
+        i64 = bat.where(mask, other=0).astype('int64')
+        bin_ts = i64.astype('datetime64[ns]').where(mask, other=np.datetime64('NaT'))
 
-    # float ns -> int64 ns (fill NaNs with 0 just for casting), then -> datetime64[ns]
-    i64 = bat.where(mask, other=0).astype('int64')
-    bin_ts = i64.astype('datetime64[ns]').where(mask, other=np.datetime64('NaT'))
-
-    # broadcast launch_time to 2D and subtract
-    launch2d = xr.broadcast(ds['launch_time'].astype('datetime64[ns]'), bat)[0]
+    # broadcast launch_time to (launch_time, height) and subtract
+    launch2d = xr.broadcast(ds['launch_time'].astype('datetime64[ns]'), bin_ts)[0]
     sec_since_launch = (bin_ts - launch2d) / np.timedelta64(1, 's')
-
     return sec_since_launch
+
 
 
 
@@ -84,30 +85,30 @@ target_minutes = [5, 10, 15, 20, 25, 80]
 target_seconds = np.array(target_minutes) * 60
 
 # --- All platforms together ---
-bin_average_time_sec = bin_time_seconds_since_launch(ds)
+interpolated_time_sec = bin_time_seconds_since_launch(ds)
   # convert to seconds
 
 results = {
     "time_min": [],
-    "mean_altitude_m": [],
+    "mean_height_m": [],
     "mean_pressure_hPa": []
 }
 
 for t_sec in target_seconds:
-    # Find the index along "alt" that is closest to target time per profile
-    time_diff = np.abs(bin_average_time_sec - t_sec)
-    idx = time_diff.argmin(dim='alt')  # shape: (launch_time,)
+    # Find the index along "height" that is closest to target time per profile
+    time_diff = np.abs(interpolated_time_sec - t_sec)
+    idx = time_diff.argmin(dim='height')  # shape: (launch_time,)
 
-    # Select altitude and pressure at this index
-    alt_at_t = ds['alt'].isel(alt=idx)
-    p_at_t = ds['p'].isel(alt=idx)
+    # Select height and pressure at this index
+    height_at_t = ds['height'].isel(height=idx)
+    p_at_t = ds['p'].isel(height=idx)
 
     # Mean across all soundings
-    mean_alt = alt_at_t.mean(dim='launch_time').item()
+    mean_height = height_at_t.mean(dim='launch_time').item()
     mean_p = p_at_t.mean(dim='launch_time').item()
 
     results["time_min"].append(t_sec // 60)
-    results["mean_altitude_m"].append(mean_alt)
+    results["mean_height_m"].append(mean_height)
     results["mean_pressure_hPa"].append(mean_p / 100)
 
 # Print as DataFrame
@@ -120,30 +121,30 @@ target_minutes = [5, 10, 15, 20, 25, 80]
 target_seconds = np.array(target_minutes) * 60
 
 # --- INMG ---
-bin_average_time_sec = bin_time_seconds_since_launch(ds_INMG)
+interpolated_time_sec = bin_time_seconds_since_launch(ds_INMG)
   # convert to seconds
 
 results = {
     "time_min": [],
-    "mean_altitude_m": [],
+    "mean_height_m": [],
     "mean_pressure_hPa": []
 }
 
 for t_sec in target_seconds:
-    # Find the index along "alt" that is closest to target time per profile
-    time_diff = np.abs(bin_average_time_sec - t_sec)
-    idx = time_diff.argmin(dim='alt')  # shape: (launch_time,)
+    # Find the index along "height" that is closest to target time per profile
+    time_diff = np.abs(interpolated_time_sec - t_sec)
+    idx = time_diff.argmin(dim='height')  # shape: (launch_time,)
 
-    # Select altitude and pressure at this index
-    alt_at_t = ds_INMG['alt'].isel(alt=idx)
-    p_at_t = ds_INMG['p'].isel(alt=idx)
+    # Select height and pressure at this index
+    height_at_t = ds_INMG['height'].isel(height=idx)
+    p_at_t = ds_INMG['p'].isel(height=idx)
 
     # Mean across all soundings
-    mean_alt = alt_at_t.mean(dim='launch_time').item()
+    mean_height = height_at_t.mean(dim='launch_time').item()
     mean_p = p_at_t.mean(dim='launch_time').item()
 
     results["time_min"].append(t_sec // 60)
-    results["mean_altitude_m"].append(mean_alt)
+    results["mean_height_m"].append(mean_height)
     results["mean_pressure_hPa"].append(mean_p / 100)
 
 # Print as DataFrame
@@ -156,29 +157,29 @@ target_minutes = [5, 10, 15, 20, 25, 80]
 target_seconds = np.array(target_minutes) * 60
 
 # --- R/V Meteor ---
-bin_average_time_sec = bin_time_seconds_since_launch(ds_MET) # convert to seconds
+interpolated_time_sec = bin_time_seconds_since_launch(ds_MET) # convert to seconds
 
 results = {
     "time_min": [],
-    "mean_altitude_m": [],
+    "mean_height_m": [],
     "mean_pressure_hPa": []
 }
 
 for t_sec in target_seconds:
-    # Find the index along "alt" that is closest to target time per profile
-    time_diff = np.abs(bin_average_time_sec - t_sec)
-    idx = time_diff.argmin(dim='alt')  # shape: (launch_time,)
+    # Find the index along "height" that is closest to target time per profile
+    time_diff = np.abs(interpolated_time_sec - t_sec)
+    idx = time_diff.argmin(dim='height')  # shape: (launch_time,)
 
-    # Select altitude and pressure at this index
-    alt_at_t = ds_MET['alt'].isel(alt=idx)
-    p_at_t = ds_MET['p'].isel(alt=idx)
+    # Select height and pressure at this index
+    height_at_t = ds_MET['height'].isel(height=idx)
+    p_at_t = ds_MET['p'].isel(height=idx)
 
     # Mean across all soundings
-    mean_alt = alt_at_t.mean(dim='launch_time').item()
+    mean_height = height_at_t.mean(dim='launch_time').item()
     mean_p = p_at_t.mean(dim='launch_time').item()
 
     results["time_min"].append(t_sec // 60)
-    results["mean_altitude_m"].append(mean_alt)
+    results["mean_height_m"].append(mean_height)
     results["mean_pressure_hPa"].append(mean_p / 100)
 
 # Print as DataFrame
@@ -191,30 +192,30 @@ target_minutes = [5, 10, 15, 20, 25, 80]
 target_seconds = np.array(target_minutes) * 60
 
 # --- BCO ---
-bin_average_time_sec = bin_time_seconds_since_launch(ds_BCO)
+interpolated_time_sec = bin_time_seconds_since_launch(ds_BCO)
   # convert to seconds
 
 results = {
     "time_min": [],
-    "mean_altitude_m": [],
+    "mean_height_m": [],
     "mean_pressure_hPa": []
 }
 
 for t_sec in target_seconds:
-    # Find the index along "alt" that is closest to target time per profile
-    time_diff = np.abs(bin_average_time_sec - t_sec)
-    idx = time_diff.argmin(dim='alt')  # shape: (launch_time,)
+    # Find the index along "height" that is closest to target time per profile
+    time_diff = np.abs(interpolated_time_sec - t_sec)
+    idx = time_diff.argmin(dim='height')  # shape: (launch_time,)
 
-    # Select altitude and pressure at this index
-    alt_at_t = ds_BCO['alt'].isel(alt=idx)
-    p_at_t = ds_BCO['p'].isel(alt=idx)
+    # Select height and pressure at this index
+    height_at_t = ds_BCO['height'].isel(height=idx)
+    p_at_t = ds_BCO['p'].isel(height=idx)
 
     # Mean across all soundings
-    mean_alt = alt_at_t.mean(dim='launch_time').item()
+    mean_height = height_at_t.mean(dim='launch_time').item()
     mean_p = p_at_t.mean(dim='launch_time').item()
 
     results["time_min"].append(t_sec // 60)
-    results["mean_altitude_m"].append(mean_alt)
+    results["mean_height_m"].append(mean_height)
     results["mean_pressure_hPa"].append(mean_p / 100)
 
 # Print as DataFrame

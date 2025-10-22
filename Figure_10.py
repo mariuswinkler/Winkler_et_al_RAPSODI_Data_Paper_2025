@@ -15,7 +15,8 @@ plt.rcParams['ytick.direction'] = 'in'
 plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
 # %%
-ds = xr.open_dataset("ipfs://bafybeihd6kyscsf7vzjnlivdtdd4fh5epuqqfqk7ldj6d2k634fuse2lay", engine="zarr")
+ds = xr.open_dataset("ipfs://bafybeics676fgy4uxmpqz36uuf4zmkx6g7bxsi73qcs5o5l2t2mo2cfgwe", engine="zarr")
+#ds = xr.open_dataset("/Users/marius/ownCloud/PhD/12_Orcestra_Campaign/00_ORCESTRA_Radiosondes_Winkler/level2/merged_dataset/for_IPFS/RS_ORCESTRA_level2_v4.0.7_for_IPFS.nc")
 
 # %%
 PLATFORM = 'BCO'
@@ -27,13 +28,13 @@ ds_MET = ds.where(ds.platform == PLATFORM, drop=True)
 #ds_MET.sel(launch_time=(ds_MET['ascent_flag'] == 0)).sel(launch_time="2024-09-21").launch_time
 # %%
 valid_mask = ds["lat"].notnull()
-valid_mask_reversed = valid_mask.isel(alt=slice(None, None, -1))
-max_alt_idx = valid_mask_reversed.argmax(dim="alt")
-max_alt_idx = ds.sizes["alt"] - 1 - max_alt_idx
-max_altitudes = ds["alt"].isel(alt=max_alt_idx)
-median_max_altitude = np.nanmedian(max_altitudes)
+valid_mask_reversed = valid_mask.isel(height=slice(None, None, -1))
+max_height_idx = valid_mask_reversed.argmax(dim="height")
+max_height_idx = ds.sizes["height"] - 1 - max_height_idx
+max_heights = ds["height"].isel(height=max_height_idx)
+median_max_height = np.nanmedian(max_heights)
 
-print(f"Median of Maximum Altitude: {median_max_altitude:.2f} meters")
+print(f"Median of Maximum height: {median_max_height:.2f} meters")
 # %%
 ## Color Sets
 color_sets = [
@@ -71,7 +72,7 @@ plt.rcParams['ytick.major.size'] = 6
 
 
 # %%
-def plot_mean_dz_with_percentiles(ax, ds, ascent_flag, alt, title, cmap_ascent, cmap_descent):
+def plot_mean_dz_with_percentiles(ax, ds, ascent_flag, height, title, cmap_ascent, cmap_descent):
     # Filter data based on ascent_flag (0 for ascent, 1 for descent)
     dz_ascent = ds['dz'].where(ds['ascent_flag'] == 0, drop=True)
     dz_descent = ds['dz'].where(ds['ascent_flag'] == 1, drop=True)
@@ -79,42 +80,42 @@ def plot_mean_dz_with_percentiles(ax, ds, ascent_flag, alt, title, cmap_ascent, 
     ALT = 50
     
     # Compute mean, 10th, and 90th percentiles for ascent and descent
-    dz_ascent_min  = dz_ascent.min(dim='launch_time').rolling(alt=ALT, center=True).mean()
-    dz_ascent_max  = dz_ascent.max(dim='launch_time').rolling(alt=ALT, center=True).mean()
+    dz_ascent_min  = dz_ascent.min(dim='launch_time').rolling(height=ALT, center=True).mean()
+    dz_ascent_max  = dz_ascent.max(dim='launch_time').rolling(height=ALT, center=True).mean()
     dz_ascent_mean = dz_ascent.mean(dim='launch_time')
     dz_ascent_10th = dz_ascent.quantile(0.1, dim='launch_time')
     dz_ascent_90th = dz_ascent.quantile(0.9, dim='launch_time')
 
-    dz_descent_min  = dz_descent.min(dim='launch_time').rolling(alt=ALT, center=True).mean()
-    dz_descent_max  = dz_descent.max(dim='launch_time').rolling(alt=ALT, center=True).mean()
+    dz_descent_min  = dz_descent.min(dim='launch_time').rolling(height=ALT, center=True).mean()
+    dz_descent_max  = dz_descent.max(dim='launch_time').rolling(height=ALT, center=True).mean()
     dz_descent_mean = dz_descent.mean(dim='launch_time')
     dz_descent_10th = dz_descent.quantile(0.1, dim='launch_time')
     dz_descent_90th = dz_descent.quantile(0.9, dim='launch_time')
 
     # Plot ascent (on the left)
-    ascent_altitudes = alt
-    ax[0].plot(dz_ascent_mean, alt, color='#1F77B4')
-    ax[0].plot(dz_ascent_min, alt, color='grey', alpha=0.5)
-    ax[0].plot(dz_ascent_max, alt, color='grey', alpha=0.5)
+    ascent_heights = height
+    ax[0].plot(dz_ascent_mean, height, color='#1F77B4')
+    ax[0].plot(dz_ascent_min, height, color='grey', alpha=0.5)
+    ax[0].plot(dz_ascent_max, height, color='grey', alpha=0.5)
     ax[0].set_xlim(0, 10)
     ax[0].set_ylim(0, 25)
-    ax[0].plot(dz_ascent_10th, ascent_altitudes, linestyle='solid', color='#6FD08C')
-    ax[0].plot(dz_ascent_90th, ascent_altitudes, linestyle='solid', color='#6FD08C')
+    ax[0].plot(dz_ascent_10th, ascent_heights, linestyle='solid', color='#6FD08C')
+    ax[0].plot(dz_ascent_90th, ascent_heights, linestyle='solid', color='#6FD08C')
     ax[0].set_title(f'{title} Ascent', pad=20, fontsize=SIZE)
-    ax[0].set_ylabel('Altitude / km')
+    ax[0].set_ylabel('Height / km')
     ax[0].set_xlabel(r'Ascent rate / ${\rm m\, s}^{-1}$')
     
     # Plot descent (on the right)
-    descent_altitudes = alt
-    ax[1].plot(dz_descent_mean, alt, color='#1F77B4')
-    ax[1].plot(dz_descent_min, alt, label='Max/Min', color='grey', alpha=0.5)
-    ax[1].plot(dz_descent_max, alt, color='grey', alpha=0.5)
+    descent_heights = height
+    ax[1].plot(dz_descent_mean, height, color='#1F77B4')
+    ax[1].plot(dz_descent_min, height, label='Max/Min', color='grey', alpha=0.5)
+    ax[1].plot(dz_descent_max, height, color='grey', alpha=0.5)
     ax[1].set_xlim(-70, 0)
     ax[1].set_ylim(0, 25)
-    ax[1].plot(dz_descent_10th, descent_altitudes, linestyle='solid', color='#6FD08C')
-    ax[1].plot(dz_descent_90th, descent_altitudes, linestyle='solid', color='#6FD08C')
+    ax[1].plot(dz_descent_10th, descent_heights, linestyle='solid', color='#6FD08C')
+    ax[1].plot(dz_descent_90th, descent_heights, linestyle='solid', color='#6FD08C')
     ax[1].set_title(f'{title} Descent', pad=20, fontsize=SIZE)
-    #ax[1].set_ylabel('Altitude / m')
+    #ax[1].set_ylabel('Height / m')
     ax[1].set_xlabel(r'Descent rate / ${\rm m\, s}^{-1}$')
 
     ax[1].axvline(1000, linestyle='solid', lw=4, label='Mean rate', color='#1F77B4')
@@ -122,8 +123,8 @@ def plot_mean_dz_with_percentiles(ax, ds, ascent_flag, alt, title, cmap_ascent, 
     ax[1].axvline(1000, linestyle='solid', lw=4, color='grey')
 
     # Compute mean dz below 15 km (in km units)
-    alt_limit_km = 25
-    below_25km = alt < alt_limit_km
+    height_limit_km = 25
+    below_25km = height < height_limit_km
 
     mean_dz_ascent_below_25km = dz_ascent.where(below_25km, drop=True).mean()
     mean_dz_descent_below_25km = dz_descent.where(below_25km, drop=True).mean()
@@ -147,8 +148,12 @@ fig, axs = plt.subplots(2, 2, figsize=(10, 12), sharex='col', sharey=True)
 cmap_ascent = plt.get_cmap('Grays')
 cmap_descent = plt.get_cmap('Grays')
 
-plot_mean_dz_with_percentiles(axs[0], ds_INMG, ascent_flag='ascent_flag', alt=ds_INMG['alt']/1000, title="Meteomodem", cmap_ascent=cmap_ascent, cmap_descent=cmap_descent)
-plot_mean_dz_with_percentiles(axs[1], xr.merge([ds_MET, ds_BCO]), ascent_flag='ascent_flag', alt=xr.merge([ds_MET, ds_BCO])['alt']/1000, title="Vaisala", cmap_ascent=cmap_ascent, cmap_descent=cmap_descent)
+ds_BCO = ds_BCO.sel(height=slice(100, None))
+ds_INMG = ds_INMG.sel(height=slice(100, None))
+ds_MET  = ds_MET.sel(height=slice(100, None))
+
+plot_mean_dz_with_percentiles(axs[0], ds_INMG, ascent_flag='ascent_flag', height=ds_INMG['height']/1000, title="Meteomodem", cmap_ascent=cmap_ascent, cmap_descent=cmap_descent)
+plot_mean_dz_with_percentiles(axs[1], xr.merge([ds_MET, ds_BCO]), ascent_flag='ascent_flag', height=xr.merge([ds_MET, ds_BCO])['height']/1000, title="Vaisala", cmap_ascent=cmap_ascent, cmap_descent=cmap_descent)
 
 axs[0, 0].set_xlabel("")
 axs[0, 1].set_xlabel("")

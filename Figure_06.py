@@ -22,7 +22,7 @@ plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
 
 # %%
-ds = xr.open_dataset("ipfs://bafybeihd6kyscsf7vzjnlivdtdd4fh5epuqqfqk7ldj6d2k634fuse2lay", engine="zarr")
+ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
 
 # %%
 def rh_mixed_phase(T, p, q):
@@ -57,13 +57,13 @@ PLATFORM = 'RV_Meteor'
 ds_MET = ds.where(ds.platform == PLATFORM, drop=True)
 #ds_MET.sel(launch_time=(ds_MET['ascent_flag'] == 0)).sel(launch_time="2024-09-21").launch_time
 valid_mask = ds["lat"].notnull()
-valid_mask_reversed = valid_mask.isel(alt=slice(None, None, -1))
-max_alt_idx = valid_mask_reversed.argmax(dim="alt")
-max_alt_idx = ds.sizes["alt"] - 1 - max_alt_idx
-max_altitudes = ds["alt"].isel(alt=max_alt_idx)
-median_max_altitude = np.nanmedian(max_altitudes)
+valid_mask_reversed = valid_mask.isel(height=slice(None, None, -1))
+max_height_idx = valid_mask_reversed.argmax(dim="height")
+max_height_idx = ds.sizes["height"] - 1 - max_height_idx
+max_heights = ds["height"].isel(height=max_height_idx)
+median_max_height = np.nanmedian(max_heights)
 
-print(f"Median of Maximum Altitude: {median_max_altitude:.2f} meters")
+print(f"Median of Maximum height: {median_max_height:.2f} meters")
 # %%
 # Compute relative humidity over liquid and ice
 for dset in [ds_BCO, ds_INMG, ds_MET]:
@@ -107,7 +107,7 @@ ds_MET_west = ds_MET.where(ds_MET.launch_lon <= -40, drop=True)
 
 # Add MSE to all datasets
 for ds in [ds_BCO, ds_MET_east, ds_MET_west, ds_INMG]:
-    ds["mse"] = mtfunc.moist_static_energy(ds.ta, ds.alt, ds.q) / 1000  # in kJ/kg
+    ds["mse"] = mtfunc.moist_static_energy(ds.ta, ds.height, ds.q) / 1000  # in kJ/kg
 
 # Define colors (adjust shades of blue as needed)
 datasets = {
@@ -123,6 +123,10 @@ titles = ["Zonal Wind", "Meridional Wind", "Relative\nHumidity", "Moist\nStatic 
 x_labels = ["u / ms$^{-1}$", "v / ms$^{-1}$", "rh", r"MSE / kJ kg$^{-1}$"]
 
 # %%
+
+
+### LINEAR PRESSURE AXIS + BOTTOM MARKERS
+
 fig, axes = plt.subplots(1, 4, figsize=(18, 10))
 
 for i, (var, title, xlabel) in enumerate(zip(variables, titles, x_labels)):
@@ -218,11 +222,125 @@ handles, labels = ax.get_legend_handles_labels()
 fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, -0.04), ncol=4, frameon=True, fontsize=SIZE)
 
 plt.tight_layout(rect=[0, 0.05, 1, 1])
-filepath = './Figures/'
-filename = f'Fig06_Overall_Means_pressure_rh_over_ice.svg'
-plt.savefig(filepath + filename, format='svg', facecolor='white', bbox_inches="tight", dpi=300)
-filename = f'Fig06_Overall_Means_pressure_rh_over_ice.png'
-plt.savefig(filepath + filename, format='png', facecolor='white', bbox_inches="tight", dpi=150)
+#filepath = './Figures/'
+#filename = f'Fig06_Overall_Means_pressure_rh_over_ice.svg'
+#plt.savefig(filepath + filename, format='svg', facecolor='white', bbox_inches="tight", dpi=300)
+#filename = f'Fig06_Overall_Means_pressure_rh_over_ice.png'
+#plt.savefig(filepath + filename, format='png', facecolor='white', bbox_inches="tight", dpi=150)
 
 plt.show()
+# %%
+
+
+
+### LOGARITHMIC PRESSURE AXIS + TOP MARKERS
+
+from matplotlib import transforms
+fig, axes = plt.subplots(1, 4, figsize=(18, 10))
+
+for i, (var, title, xlabel) in enumerate(zip(variables, titles, x_labels)):
+    ax = axes[i]
+
+    # blended transform: x in data units, y in axes-fraction (0..1)
+    trans = transforms.blended_transform_factory(ax.transData, ax.transAxes)
+
+    for dataset_name, dataset_info in datasets.items():
+        datas = dataset_info["data"]
+        color = dataset_info["color"]
+
+        data = datas[var]
+        pressure = datas["p"]
+
+        valid_mask = ~np.all(np.isnan(data), axis=0)
+        mean_data = np.nanmean(data[:, valid_mask], axis=0)
+        mean_pressure = np.nanmean(pressure[:, valid_mask], axis=0) / 100  # convert to hPa
+        valid = (mean_pressure > 100) & (mean_pressure < 1000)
+
+        # Plot mean vertical profile
+        ax.plot(mean_data[valid], mean_pressure[valid],
+                color=color, linewidth=4, label=dataset_name, zorder=10)
+
+        # Compute statistics for top marker
+        profile_data = mean_data[valid]
+        mean_value = np.nanmean(profile_data)
+        std_dev = np.nanstd(profile_data)
+
+        # Vertically offset header markers per dataset (axes-fraction coordinates)
+        offset_index = list(datasets.keys()).index(dataset_name)
+        n_sets = len(datasets)
+        ybar_base = 1.05      # baseline height above panel
+        y_step = 0.03         # vertical separation between datasets
+        ybar = ybar_base + (n_sets - 1 - offset_index) * y_step
+        h = 0.02             # height of vertical tick (axes fraction)
+
+        # Plot vertical bars for ±std
+        for x in [mean_value - std_dev, mean_value + std_dev]:
+            ax.vlines(x, ymin=ybar - h/2, ymax=ybar + h/2,
+                      color=color, linewidth=3, transform=trans, clip_on=False)
+
+        # Draw horizontal connector line between ±std
+        ax.hlines(ybar, xmin=mean_value - std_dev, xmax=mean_value + std_dev,
+                  color=color, linewidth=1.5, transform=trans, clip_on=False)
+
+        # Plot mean as a circle marker
+        ax.plot(mean_value, ybar, marker='o', color=color, markersize=8,
+                transform=trans, clip_on=False)
+
+    # Axis titles and layout
+    ax.set_title(title, fontsize=SIZE, pad=80)
+    ax.set_xlabel(xlabel)
+
+    # Logarithmic pressure axis
+    ax.set_yscale("log")
+    ax.set_ylim(1000, 100)
+    ticks = [1000, 800, 700, 600, 500, 400, 300, 200, 100]
+    ax.set_yticks(ticks)
+
+    if i == 0:
+        ax.set_yticklabels([str(t) for t in ticks])
+        ax.set_ylabel("Pressure / hPa", fontsize=SIZE)
+    else:
+        ax.set_yticklabels([])
+
+    # X limits and guides
+    if var == "rh":
+        ax.set_xlim(0, 1)
+    if var == "mse":
+        ax.set_xlim(330, 370)
+    if var in ["u", "v"]:
+        ax.axvline(0, color='grey', ls='dashed')
+    if var == "u":
+        ax.set_xlim(-17, 17)
+    if var == "v":
+        ax.set_xlim(-7, 7)
+
+    # Subplot labels (a), (b), ...
+    ax.text(-0.18, 1.25, subplot_labels[i], transform=ax.transAxes,
+            fontsize=SIZE + 4, fontweight="normal", verticalalignment="top")
+
+    # Clean plot style
+    ax.grid(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines[["left", "bottom"]].set_position(("outward", 20))
+
+# Add legend below panels
+handles, labels = axes[-1].get_legend_handles_labels()
+fig.legend(handles, labels, loc="lower center",
+           bbox_to_anchor=(0.5, -0.04), ncol=4,
+           frameon=True, fontsize=SIZE)
+
+plt.tight_layout(rect=[0, 0.05, 1, 1])
+
+# Save figure
+filepath = './Figures/'
+filename = 'Fig06_Overall_Means_pressure_rh_over_ice.svg'
+plt.savefig(filepath + filename, format='svg', facecolor='white',
+            bbox_inches="tight", dpi=300)
+filename = 'Fig06_Overall_Means_pressure_rh_over_ice.png'
+plt.savefig(filepath + filename, format='png', facecolor='white',
+            bbox_inches="tight", dpi=150)
+
+plt.show()
+
 # %%
