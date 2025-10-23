@@ -92,8 +92,8 @@ for i, var in enumerate(vars_to_plot):
                     color='black', lw=1, label=('Vaisala' if i == 0 else '_nolegend_'),
                     zorder=2)
 
-    ln_m, = ax.plot(diff_m[var].sel(alt=slice(bottom_cutoff, z_max_m)),
-                    (z_m.sel(alt=slice(bottom_cutoff, z_max_m)) / 1000.0),
+    ln_m, = ax.plot(diff_m[var].sel(height=slice(bottom_cutoff, z_max_m)),
+                    (z_m.sel(height=slice(bottom_cutoff, z_max_m)) / 1000.0),
                     color='royalblue', lw=1.4, alpha=0.85,
                     label=('Meteomodem' if i == 0 else '_nolegend_'),
                     zorder=3)
@@ -118,7 +118,7 @@ for i, var in enumerate(vars_to_plot):
     #print(f"for {variables_to_plot} the mean diff of Meteomodem is: {mean_v}")
 
     # Meteomodem mean:
-    mean_m = float(diff_m[var].sel(alt=slice(bottom_cutoff, tick_mean_top_m)).mean().values)
+    mean_m = float(diff_m[var].sel(height=slice(bottom_cutoff, tick_mean_top_m)).mean().values)
     ax.vlines(mean_m, ymin=-1.5, ymax=-0.8, color='royalblue', linewidth=3, zorder=11, clip_on=False)
     #print(f"for {variables_to_plot} the mean diff of Meteomodem is: {mean_m}")
 
@@ -136,4 +136,5 @@ plt.show()
 # %%
 
 ds
+
 # %%

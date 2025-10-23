@@ -7,7 +7,7 @@ import matplotlib.colors as mcolors
 import matplotlib.cm as cm
 
 # %%
-osc_RS = xr.open_dataset("ipfs://bafybeiad2hzz36nrc5lnmlscb6zpaq5wqufoemzinjeub2pgkjq63eqr7m", engine="zarr")
+osc_RS = xr.open_dataset("ipfs://bafybeidtfcyurvbw5obbhl5zlyfaoamnlhu6rrxyrmg2r2wwwidxq32oeq", engine="zarr")
 pr_data = xr.open_dataset("ipfs://bafybeihjcwsecgpmsjxoo5peqafnuqfnalu3ya3vtibwl7qkm76izsnuei", engine="zarr")
 # %%
 ## Plotting
