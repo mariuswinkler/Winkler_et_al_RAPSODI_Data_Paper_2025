@@ -15,8 +15,7 @@ plt.rcParams['ytick.direction'] = 'in'
 plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
 # %%
-ds = xr.open_dataset("ipfs://bafybeics676fgy4uxmpqz36uuf4zmkx6g7bxsi73qcs5o5l2t2mo2cfgwe", engine="zarr")
-#ds = xr.open_dataset("/Users/marius/ownCloud/PhD/12_Orcestra_Campaign/00_ORCESTRA_Radiosondes_Winkler/level2/merged_dataset/for_IPFS/RS_ORCESTRA_level2_v4.0.7_for_IPFS.nc")
+ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
 
 # %%
 PLATFORM = 'BCO'

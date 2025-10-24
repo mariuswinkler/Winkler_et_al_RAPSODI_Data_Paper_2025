@@ -242,6 +242,13 @@ def prep_level1_for_ipfs(ds: xr.Dataset) -> xr.Dataset:
       - set global/variable attributes
       - demote all coords except: sonde_id, level, launch_time, lat, lon, flight_time
     """
+
+    if 'platform' in ds:
+        # make sure there is space for 4 chars, then replace
+        da = ds['platform'].astype('U4')
+        da = xr.where(da == 'INM', 'INMG', da)
+        ds['platform'] = da
+
     if "sounding" not in ds.dims or "level" not in ds.dims:
         return ds
 
@@ -316,6 +323,7 @@ def prep_level1_for_ipfs(ds: xr.Dataset) -> xr.Dataset:
         "platform": dict(long_name="launching platform"),
     }
     ds = _apply_attrs(ds, attr_map, overwrite_keys=("cell_methods",))
+
     if "dz" in ds:
         ds["dz"].attrs.setdefault("comment",
             "Derived from vertical changes of geopotential height; describes platform motion, not air vertical velocity.")
@@ -339,6 +347,10 @@ def prep_level1_for_ipfs(ds: xr.Dataset) -> xr.Dataset:
         "(merged, padded to common vertical levels)"
     )
     ds.attrs["keywords"] = "ORCESTRA, RAPSODI, Radiosonde Profiles, Sounding, INMG, RV Meteor, BCO"
+    ds.attrs["summary"] = (
+    "Vertical atmospheric profile, retrieved from atmospheric sounding "
+    "attached to a helium-filled balloon."
+    )
 
     # demote all coords except whitelist, but never names that are also dimensions
     keep_coords = {"sonde_id", "level", "launch_time", "lat", "lon", "flight_time"}
@@ -365,7 +377,12 @@ def run_part2_amend_dataset(in_file=OUT_FILE_RAW, out_file=OUT_FILE_FINAL) -> Pa
 # >>> Run this cell for Part 2
 final_ds, outfile_path = run_part2_amend_dataset()
 final_ds
+
+# %%
+
+final_ds
+
+
 # %%
 
 xr.open_dataset(outfile_path)
-# %%

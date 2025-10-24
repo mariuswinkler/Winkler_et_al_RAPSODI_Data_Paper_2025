@@ -135,3 +135,4 @@ zarr_dirs = [DS_zarr_file]
 
 print(f"\nRunning IPFS add for Level 2 datasets...\n")
 cids_level2 = add_to_ipfs_and_export(zarr_dirs, basepath=DATAPATH_TO_STORE)
+# %%
