@@ -3,8 +3,7 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 
-#ds = xr.open_dataset("ipfs://bafybeihd6kyscsf7vzjnlivdtdd4fh5epuqqfqk7ldj6d2k634fuse2lay", engine="zarr")
-ds = xr.open_dataset("/Users/marius/ownCloud/PhD/12_Orcestra_Campaign/00_ORCESTRA_Radiosondes_Winkler/level2/merged_dataset/for_IPFS/RS_ORCESTRA_level2_v4.0.7_for_IPFS.nc")
+ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
 
 # %%
 def platform_summary(ds, platform):
@@ -70,11 +69,3 @@ def overall_descent_stats(ds, threshold_hpa=980.0):
 
 # --- Apply for all platforms combined ---
 overall_descent_stats(ds, threshold_hpa=980.0)
-
-# %%
-156+327+141
-# %%
-121+313+135
-# %%
-569+624
-# %%

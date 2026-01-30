@@ -58,7 +58,6 @@ def find_sync_xml(zf: zipfile.ZipFile) -> Optional[str]:
             return name
     return None
 
-# --- add near the top (after imports) ---
 MISSING_SENTINELS = {-32768.0, -32768, -9999.0, -9999, 9999.0, 9999, 999999.0, 999999}
 
 def _f(val: Optional[str]) -> Optional[float]:
@@ -80,7 +79,6 @@ def _valid_lon(x: float) -> bool:
     return x is not None and -180.0 <= x <= 180.0
 
 def _valid_alt(x: float) -> bool:
-    # allow slightly negative near sea level; cap absurd values
     return x is not None and -2000.0 <= x <= 100000.0
 
 
@@ -102,7 +100,7 @@ def parse_rows(xml_root: ET.Element) -> Dict[str, List]:
         h_ptu.append(_f(row.get("Height")))
         h_geom_xml.append(_f(row.get("GeometricHeight")))
         times.append(row.get("DataSrvTime") or row.get("UtcTime") or row.get("RadioRxTimePk") or "")
-        dropping.append(int(_f(row.get("Dropping")) or 0))  # 0 ascent, 1 descent
+        dropping.append(int(_f(row.get("Dropping")) or 0))
         pres.append(_f(row.get("Pressure")))
         temp.append(_f(row.get("Temperature")))
         rh.append(_f(row.get("Humidity")))
@@ -134,11 +132,10 @@ def process_one_mwx(mwx_path: Path, geoid: GeoidKarney) -> Dict[str, Path]:
     geoid_m, geom_m, geopot_m = [], [], []
     for lat, lon, alt_wgs in zip(data["lat"], data["lon"], data["alt_wgs84"]):
         try:
-            und = geoid(LatLon(lat, lon))                 # geoid height [m]
-            h_geom = alt_wgs - und                        # orthometric height
-            h_phi  = convert_to_geopotential(lat, h_geom) # geopotential height
+            und = geoid(LatLon(lat, lon))                 
+            h_geom = alt_wgs - und                        
+            h_phi  = convert_to_geopotential(lat, h_geom)
         except Exception:
-            # If pygeodesy still complains, just mark this sample NaN
             und, h_geom, h_phi = (np.nan, np.nan, np.nan)
 
         geoid_m.append(float(und) if und == und else np.nan)
@@ -209,7 +206,6 @@ def main():
                 print(f"[{i}/{len(mwx_files)}] OK: {mwx.name} -> "
                       f"{outpaths['all'].name}, {outpaths['ascent'].name}, {outpaths['descent'].name}")
 
-                # append only the “all” file to the combined CSV
                 with outpaths["all"].open("r", newline="") as fin:
                     r = csv.reader(fin)
                     header = next(r)
@@ -228,5 +224,3 @@ def main():
 # %%
 if __name__ == "__main__":
     main()
-
-# %%

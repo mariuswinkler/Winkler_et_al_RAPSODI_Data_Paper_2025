@@ -2,8 +2,7 @@
 import xarray as xr
 import numpy as np
 
-#ds = xr.open_dataset("ipfs://bafybeihd6kyscsf7vzjnlivdtdd4fh5epuqqfqk7ldj6d2k634fuse2lay", engine="zarr")
-ds = xr.open_dataset("/Users/marius/ownCloud/PhD/12_Orcestra_Campaign/00_ORCESTRA_Radiosondes_Winkler/level2/merged_dataset/for_IPFS/RS_ORCESTRA_level2_v4.0.7_for_IPFS.nc")
+ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
 
 HEIGHT_NAME  = "height"          # meters
 TIME_NAME = "launch_time"  # datetime64
@@ -192,3 +191,5 @@ for plat in PLATFORMS:
 
         print(f"{plat} ({label}): median flight time = {med_time_min:.1f} min, "
               f"median distance = {med_dist_km:.1f} km")
+
+# %%

@@ -4,6 +4,9 @@ import numpy as np
 import matplotlib.pylab as plt
 
 # %%
+ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
+
+# %%
 SIZE = 15
 plt.rcParams["axes.labelsize"] = SIZE
 plt.rcParams["legend.fontsize"] = SIZE
@@ -14,8 +17,6 @@ plt.rcParams['xtick.direction'] = 'in'
 plt.rcParams['ytick.direction'] = 'in'
 plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
-# %%
-ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
 
 # %%
 PLATFORM = 'BCO'
@@ -24,7 +25,7 @@ PLATFORM = 'INMG'
 ds_INMG = ds.where(ds.platform == PLATFORM, drop=True)
 PLATFORM = 'RV_Meteor'
 ds_MET = ds.where(ds.platform == PLATFORM, drop=True)
-#ds_MET.sel(launch_time=(ds_MET['ascent_flag'] == 0)).sel(launch_time="2024-09-21").launch_time
+
 # %%
 valid_mask = ds["lat"].notnull()
 valid_mask_reversed = valid_mask.isel(height=slice(None, None, -1))
@@ -35,28 +36,12 @@ median_max_height = np.nanmedian(max_heights)
 
 print(f"Median of Maximum height: {median_max_height:.2f} meters")
 # %%
-## Color Sets
-color_sets = [
-    ["red", "blue", "green"], #0
-    ["darkorange", "darkblue", "lime"], #1
-    ["crimson", "royalblue", "darkgreen"], #2
-    ["tomato", "mediumblue", "forestgreen"], #3
-    ["firebrick", "cornflowerblue", "mediumseagreen"], #4
-    ["darkred", "dodgerblue", "springgreen"], #5
-    ["orangered", "blueviolet", "teal"], #6
-    ["indianred", "deepskyblue", "mediumspringgreen"], #7
-    ["chocolate", "navy", "chartreuse"], #8
-    ["gold", "purple", "darkcyan"], #9
-    ["gold", "darkblue", "crimson"], #10
-    ["#BF312D", "darkblue", "#F6CA4C"] #11
-]
 
-active_color_set_index = 11
-
-active_colors = color_sets[active_color_set_index]
+active_colors = ["#BF312D", "darkblue", "#F6CA4C"]
 color_INMG = active_colors[0]
 color_Meteor = active_colors[1]
 color_BCO = active_colors[2]
+
 # %%
 SIZE = 20
 plt.rcParams["axes.labelsize"] = SIZE
@@ -69,16 +54,13 @@ plt.rcParams['ytick.direction'] = 'in'
 plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
 
-
 # %%
 def plot_mean_dz_with_percentiles(ax, ds, ascent_flag, height, title, cmap_ascent, cmap_descent):
-    # Filter data based on ascent_flag (0 for ascent, 1 for descent)
     dz_ascent = ds['dz'].where(ds['ascent_flag'] == 0, drop=True)
     dz_descent = ds['dz'].where(ds['ascent_flag'] == 1, drop=True)
 
     ALT = 50
     
-    # Compute mean, 10th, and 90th percentiles for ascent and descent
     dz_ascent_min  = dz_ascent.min(dim='launch_time').rolling(height=ALT, center=True).mean()
     dz_ascent_max  = dz_ascent.max(dim='launch_time').rolling(height=ALT, center=True).mean()
     dz_ascent_mean = dz_ascent.mean(dim='launch_time')
@@ -91,7 +73,6 @@ def plot_mean_dz_with_percentiles(ax, ds, ascent_flag, height, title, cmap_ascen
     dz_descent_10th = dz_descent.quantile(0.1, dim='launch_time')
     dz_descent_90th = dz_descent.quantile(0.9, dim='launch_time')
 
-    # Plot ascent (on the left)
     ascent_heights = height
     ax[0].plot(dz_ascent_mean, height, color='#1F77B4')
     ax[0].plot(dz_ascent_min, height, color='grey', alpha=0.5)
@@ -104,7 +85,6 @@ def plot_mean_dz_with_percentiles(ax, ds, ascent_flag, height, title, cmap_ascen
     ax[0].set_ylabel('Height / km')
     ax[0].set_xlabel(r'Ascent rate / ${\rm m\, s}^{-1}$')
     
-    # Plot descent (on the right)
     descent_heights = height
     ax[1].plot(dz_descent_mean, height, color='#1F77B4')
     ax[1].plot(dz_descent_min, height, label='Max/Min', color='grey', alpha=0.5)
@@ -114,21 +94,18 @@ def plot_mean_dz_with_percentiles(ax, ds, ascent_flag, height, title, cmap_ascen
     ax[1].plot(dz_descent_10th, descent_heights, linestyle='solid', color='#6FD08C')
     ax[1].plot(dz_descent_90th, descent_heights, linestyle='solid', color='#6FD08C')
     ax[1].set_title(f'{title} Descent', pad=20, fontsize=SIZE)
-    #ax[1].set_ylabel('Height / m')
     ax[1].set_xlabel(r'Descent rate / ${\rm m\, s}^{-1}$')
 
     ax[1].axvline(1000, linestyle='solid', lw=4, label='Mean rate', color='#1F77B4')
     ax[1].axvline(1000, linestyle='solid', lw=4, label='10th/90th percentile', color='#6FD08C')
     ax[1].axvline(1000, linestyle='solid', lw=4, color='grey')
 
-    # Compute mean dz below 15 km (in km units)
     height_limit_km = 25
     below_25km = height < height_limit_km
 
     mean_dz_ascent_below_25km = dz_ascent.where(below_25km, drop=True).mean()
     mean_dz_descent_below_25km = dz_descent.where(below_25km, drop=True).mean()
 
-    # Add short tick marks to indicate mean below 15 km
     ax[0].axvline(mean_dz_ascent_below_25km, ymin=-0.06, ymax=-0.04, color='#1F77B4', linewidth=4, label='_nolegend_', clip_on=False)
     ax[1].axvline(mean_dz_descent_below_25km, ymin=-0.06, ymax=-0.04, color='#1F77B4', linewidth=4, label='_nolegend_', clip_on=False)
     print("mean_dz_ascent_below_25km", mean_dz_ascent_below_25km.values)
@@ -138,8 +115,6 @@ def plot_mean_dz_with_percentiles(ax, ds, ascent_flag, height, title, cmap_ascen
         axis.spines[["left", "bottom"]].set_position(("outward", 20))
         axis.spines[["right", "top"]].set_visible(False)
         axis.grid(True, linestyle="dotted", alpha=0.5, color='grey')
-
-
 
 # %%
 fig, axs = plt.subplots(2, 2, figsize=(10, 12), sharex='col', sharey=True)

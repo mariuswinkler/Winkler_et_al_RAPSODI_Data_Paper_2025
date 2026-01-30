@@ -8,6 +8,9 @@ from moist_thermodynamics import constants
 from RAPSODI_functions import filter_profiles, calc_iwv
 
 # %%
+ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
+
+# %%
 SIZE = 15
 plt.rcParams["axes.labelsize"] = SIZE
 plt.rcParams["legend.fontsize"] = SIZE
@@ -20,17 +23,14 @@ plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
 
 # %%
-ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
-# %%
-# Colors
 color_INMG = "#BF312D"
 color_Meteor = "darkblue"
 color_BCO = "#F6CA4C"
 
 # %%
 def plot_iwv_histograms(
-    iwv_da,                 # 1D DataArray of IWV (coords include launch_time)
-    platform_da,            # 1D DataArray of platform aligned with iwv_da
+    iwv_da,                 
+    platform_da,            
     valid_height_threshold=8000,
     near_surface_min_pts=50,
     max_missing_frac=0.20,
@@ -41,13 +41,6 @@ def plot_iwv_histograms(
 ):
     """
     Make per-platform IWV histograms with mean markers and save SVG/PNG.
-
-    Parameters
-    ----------
-    iwv_da : xr.DataArray
-        1D, name 'IWV' preferred. Units: kg m^-2.
-    platform_da : xr.DataArray
-        1D, same length/order as iwv_da. Values: 'BCO', 'RV_Meteor', 'INMG'.
     """
 
     os.makedirs(filepath, exist_ok=True)
@@ -96,7 +89,7 @@ def plot_iwv_histograms(
 # 1) Filter first (Steps 1–4)
 ds_filtered = filter_profiles(
     ds,
-    valid_height_threshold=8000,  # Step 2 threshold in meters
+    valid_height_threshold=8000,    # Step 2 threshold in meters
     near_surface_h=1000,            # Step 4: near-surface height range (m)
     near_surface_min_pts=50,        # Step 4: min points below 1 km
     max_missing_frac=0.20,          # Step 3: allow up to 20% missing

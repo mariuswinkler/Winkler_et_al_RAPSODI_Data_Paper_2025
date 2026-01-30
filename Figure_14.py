@@ -3,6 +3,10 @@ import xarray as xr
 import numpy as np
 import matplotlib.pylab as plt
 import pandas as pd
+
+# %%
+ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
+
 # %%
 SIZE = 15
 plt.rcParams["axes.labelsize"] = SIZE
@@ -16,42 +20,22 @@ plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
 
 # %%
-ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
-
-# %%
 PLATFORM = 'BCO'
 ds_BCO = ds.where(ds.platform == PLATFORM, drop=True).where(ds['ascent_flag'] == 0, drop=True)
 PLATFORM = 'INMG'
 ds_INMG = ds.where(ds.platform == PLATFORM, drop=True).where(ds['ascent_flag'] == 0, drop=True)
 PLATFORM = 'RV_Meteor'
 ds_MET = ds.where(ds.platform == PLATFORM, drop=True).where(ds['ascent_flag'] == 0, drop=True)
+
 # %%
-## Color Sets
-color_sets = [
-    ["red", "blue", "green"], #0
-    ["darkorange", "darkblue", "lime"], #1
-    ["crimson", "royalblue", "darkgreen"], #2
-    ["tomato", "mediumblue", "forestgreen"], #3
-    ["firebrick", "cornflowerblue", "mediumseagreen"], #4
-    ["darkred", "dodgerblue", "springgreen"], #5
-    ["orangered", "blueviolet", "teal"], #6
-    ["indianred", "deepskyblue", "mediumspringgreen"], #7
-    ["chocolate", "navy", "chartreuse"], #8
-    ["gold", "purple", "darkcyan"], #9
-    ["gold", "darkblue", "crimson"], #10
-    ["#BF312D", "darkblue", "#F6CA4C"] #11
-]
 
-active_color_set_index = 11
-
-active_colors = color_sets[active_color_set_index]
+active_colors = ["#BF312D", "darkblue", "#F6CA4C"]
 color_INMG = active_colors[0]
 color_Meteor = active_colors[1]
 color_BCO = active_colors[2]
 
 
 # %%
-
 def bin_time_seconds_since_launch(ds):
     """
     Return seconds since launch with shape (launch_time, height).
@@ -61,32 +45,21 @@ def bin_time_seconds_since_launch(ds):
     bat = ds['interpolated_time']
 
     if np.issubdtype(bat.dtype, np.datetime64):
-        # already datetime: just ensure ns precision
         bin_ts = bat.astype('datetime64[ns]')
     else:
-        # numeric ns -> datetime64[ns], preserve NaNs as NaT
         mask = np.isfinite(bat)
         i64 = bat.where(mask, other=0).astype('int64')
         bin_ts = i64.astype('datetime64[ns]').where(mask, other=np.datetime64('NaT'))
 
-    # broadcast launch_time to (launch_time, height) and subtract
     launch2d = xr.broadcast(ds['launch_time'].astype('datetime64[ns]'), bin_ts)[0]
     sec_since_launch = (bin_ts - launch2d) / np.timedelta64(1, 's')
     return sec_since_launch
 
-
-
-
-
 # %%
-## All
-# Target time thresholds in minutes
 target_minutes = [5, 10, 15, 20, 25, 80]
 target_seconds = np.array(target_minutes) * 60
 
-# --- All platforms together ---
 interpolated_time_sec = bin_time_seconds_since_launch(ds)
-  # convert to seconds
 
 results = {
     "time_min": [],
@@ -95,15 +68,12 @@ results = {
 }
 
 for t_sec in target_seconds:
-    # Find the index along "height" that is closest to target time per profile
     time_diff = np.abs(interpolated_time_sec - t_sec)
-    idx = time_diff.argmin(dim='height')  # shape: (launch_time,)
+    idx = time_diff.argmin(dim='height')  
 
-    # Select height and pressure at this index
     height_at_t = ds['height'].isel(height=idx)
     p_at_t = ds['p'].isel(height=idx)
 
-    # Mean across all soundings
     mean_height = height_at_t.mean(dim='launch_time').item()
     mean_p = p_at_t.mean(dim='launch_time').item()
 
@@ -111,18 +81,14 @@ for t_sec in target_seconds:
     results["mean_height_m"].append(mean_height)
     results["mean_pressure_hPa"].append(mean_p / 100)
 
-# Print as DataFrame
 df = pd.DataFrame(results)
 print(df)
 
 ## INMG
-# Target time thresholds in minutes
 target_minutes = [5, 10, 15, 20, 25, 80]
 target_seconds = np.array(target_minutes) * 60
 
-# --- INMG ---
 interpolated_time_sec = bin_time_seconds_since_launch(ds_INMG)
-  # convert to seconds
 
 results = {
     "time_min": [],
@@ -131,15 +97,12 @@ results = {
 }
 
 for t_sec in target_seconds:
-    # Find the index along "height" that is closest to target time per profile
     time_diff = np.abs(interpolated_time_sec - t_sec)
-    idx = time_diff.argmin(dim='height')  # shape: (launch_time,)
+    idx = time_diff.argmin(dim='height') 
 
-    # Select height and pressure at this index
     height_at_t = ds_INMG['height'].isel(height=idx)
     p_at_t = ds_INMG['p'].isel(height=idx)
 
-    # Mean across all soundings
     mean_height = height_at_t.mean(dim='launch_time').item()
     mean_p = p_at_t.mean(dim='launch_time').item()
 
@@ -147,17 +110,14 @@ for t_sec in target_seconds:
     results["mean_height_m"].append(mean_height)
     results["mean_pressure_hPa"].append(mean_p / 100)
 
-# Print as DataFrame
 df = pd.DataFrame(results)
 print(df)
 
 ## R/V Meteor
-# Target time thresholds in minutes
 target_minutes = [5, 10, 15, 20, 25, 80]
 target_seconds = np.array(target_minutes) * 60
 
-# --- R/V Meteor ---
-interpolated_time_sec = bin_time_seconds_since_launch(ds_MET) # convert to seconds
+interpolated_time_sec = bin_time_seconds_since_launch(ds_MET) 
 
 results = {
     "time_min": [],
@@ -166,15 +126,12 @@ results = {
 }
 
 for t_sec in target_seconds:
-    # Find the index along "height" that is closest to target time per profile
     time_diff = np.abs(interpolated_time_sec - t_sec)
-    idx = time_diff.argmin(dim='height')  # shape: (launch_time,)
+    idx = time_diff.argmin(dim='height')  
 
-    # Select height and pressure at this index
     height_at_t = ds_MET['height'].isel(height=idx)
     p_at_t = ds_MET['p'].isel(height=idx)
 
-    # Mean across all soundings
     mean_height = height_at_t.mean(dim='launch_time').item()
     mean_p = p_at_t.mean(dim='launch_time').item()
 
@@ -182,18 +139,14 @@ for t_sec in target_seconds:
     results["mean_height_m"].append(mean_height)
     results["mean_pressure_hPa"].append(mean_p / 100)
 
-# Print as DataFrame
 df = pd.DataFrame(results)
 print(df)
 
 ## BCO
-# Target time thresholds in minutes
 target_minutes = [5, 10, 15, 20, 25, 80]
 target_seconds = np.array(target_minutes) * 60
 
-# --- BCO ---
 interpolated_time_sec = bin_time_seconds_since_launch(ds_BCO)
-  # convert to seconds
 
 results = {
     "time_min": [],
@@ -202,15 +155,12 @@ results = {
 }
 
 for t_sec in target_seconds:
-    # Find the index along "height" that is closest to target time per profile
     time_diff = np.abs(interpolated_time_sec - t_sec)
-    idx = time_diff.argmin(dim='height')  # shape: (launch_time,)
+    idx = time_diff.argmin(dim='height') 
 
-    # Select height and pressure at this index
     height_at_t = ds_BCO['height'].isel(height=idx)
     p_at_t = ds_BCO['p'].isel(height=idx)
 
-    # Mean across all soundings
     mean_height = height_at_t.mean(dim='launch_time').item()
     mean_p = p_at_t.mean(dim='launch_time').item()
 
@@ -218,20 +168,13 @@ for t_sec in target_seconds:
     results["mean_height_m"].append(mean_height)
     results["mean_pressure_hPa"].append(mean_p / 100)
 
-# Print as DataFrame
 df = pd.DataFrame(results)
 print(df)
 
-
-
-
-
 # %%
 # Launch Clock
-# Font size
 SIZE = 20
 
-# Convert launch times to pandas datetime
 times_BCO  = pd.to_datetime(ds_BCO['launch_time'].values)
 times_INMG = pd.to_datetime(ds_INMG['launch_time'].values)
 times_MET  = pd.to_datetime(ds_MET['launch_time'].values)
@@ -246,22 +189,18 @@ def plot_clock(ax, times, color, alpha=0.6, label=None, radius=0.3, zorder=1):
         ax.plot([theta, theta], [r_start, r_end], color=color, alpha=alpha, lw=2,
                 label=label if i == 0 else None, zorder=zorder)
 
-# Create polar plot
 fig, ax = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(8, 8))
-
-# Plot each platform with distinct radius
 
 plot_clock(ax, times_INMG, color_INMG,   alpha=0.5, label="INMG",       radius=0.54)
 plot_clock(ax, times_MET,  color_Meteor, alpha=0.5, label="R/V Meteor", radius=0.37)
 plot_clock(ax, times_BCO,  color_BCO,    alpha=0.5, label="BCO",        radius=0.2, zorder=10)
 
-# Clock formatting
 ax.set_facecolor('white')
 ax.grid(False)
 ax.set_theta_zero_location("N")
 ax.set_theta_direction(-1)
-ax.set_ylim(0, 0.6)  # Keep everything close to center
-ax.spines['polar'].set_visible(False)  # ← Removes the black ring
+ax.set_ylim(0, 0.6)  
+ax.spines['polar'].set_visible(False) 
 
 # Hour labels every 3 hours starting from 2:00
 hours = np.arange(0, 24, 3)
@@ -269,18 +208,13 @@ angles = 2 * np.pi * hours / 24
 ax.set_xticks(angles)
 ax.set_xticklabels([f"{h:02d}:00" for h in hours], fontsize=SIZE)
 
-# Hour tick marks (pointing outward beyond ticks)
 for angle in angles:
     ax.plot([angle, angle], [0., 0.57], color='grey', lw=1, ls='dotted',zorder=20, clip_on=False)
 
-# Remove radius labels
 ax.set_yticklabels([])
 
-# Legend and title
 ax.legend(loc='lower center', bbox_to_anchor=(0.5, -0.18), ncol=3, frameon=False, fontsize=SIZE)
-#plt.title("Radiosonde Launch Times on a 24-Hour Clock", fontsize=SIZE + 2, pad=30)
 
-# === Save and show ===
 plt.tight_layout()
 filepath = './Figures/'
 filename = 'Fig15_Launch_Time_Watch.svg'
@@ -289,7 +223,4 @@ filename = 'Fig15_Launch_Time_Watch.png'
 plt.savefig(filepath + filename, format='png', facecolor='white', bbox_inches="tight", dpi=150)
 
 plt.show()
-
-times_INMG
-
 # %%

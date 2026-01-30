@@ -1,16 +1,15 @@
-# %% ---------------------------------------------------------------
-# Figure style / axes (same look as before)
+# %%
 import xarray as xr
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-bottom_cutoff   = 200.0     # m
-tick_mean_top_m = 15000.0   # m
-z_max_m         = 25000.0   # m (plot top)
-DZ              = 10.0      # m (bin size / target grid)
-SIZE            = 15
+# %%
+RAPSODI_LEVEL1 = "ipfs://bafybeidol5jadpzb2ibssf2lbbgdhm2zgzeg2urdyefwsxx7eelmcuumn4"
+VAI_ASC = "Vaisala_Geopotential_Height/ALL_gps_geopot_binned10m_ascent.csv"
+VAI_DES = "Vaisala_Geopotential_Height/ALL_gps_geopot_binned10m_descent.csv"
 
+# %%
 plt.rcParams.update({
     "axes.labelsize": SIZE,
     "legend.fontsize": SIZE,
@@ -24,30 +23,27 @@ plt.rcParams.update({
 })
 
 vars_to_plot   = ["p", "ta", "rh", "wspd"]
-xlabels        = ["Pressure / Pa", "Air Temperature / K", "Relative Humidity / 1", "Wind Speed / ms$^{-1}$"]
+xlabels        = ["Pressure / Pa", "Air Temperature / K", "Relative Humidity / %", "Wind Speed / ms$^{-1}$"]
 subplot_labels = ["(a)", "(b)", "(c)", "(d)"]
 
-# Sources
-RAPSODI_LEVEL1 = "ipfs://bafybeidol5jadpzb2ibssf2lbbgdhm2zgzeg2urdyefwsxx7eelmcuumn4"
-VAI_ASC = "Vaisala_Geopotential_Height/ALL_gps_geopot_binned10m_ascent.csv"
-VAI_DES = "Vaisala_Geopotential_Height/ALL_gps_geopot_binned10m_descent.csv"
+bottom_cutoff   = 200.0     
+tick_mean_top_m = 15000.0   
+z_max_m         = 25000.0   
+DZ              = 10.0      
+SIZE            = 15
 
-# Platforms
-meteomodem_platforms = ["INMG"]                # bin using 'alt'
-vaisala_platforms    = ["BCO", "RV_Meteor"]   # Vaisala comes from CSVs, already binned
+meteomodem_platforms = ["INM"]                
+vaisala_platforms    = ["BCO", "RV_Meteor"]  
 
-# Fixed 10 m grid (bin edges & centers) -> 0..31 km like your CSVs
 Z_MIN, Z_MAX = 0.0, 31000.0
 BIN_EDGES   = np.arange(Z_MIN, Z_MAX + DZ, DZ)
 BIN_CENTERS = 0.5 * (BIN_EDGES[:-1] + BIN_EDGES[1:])
 N_BINS      = len(BIN_CENTERS)
 
-# %% ---------------------------------------------------------------
-# Helpers for Meteomodem binning
-
+# %% 
 def _phase_masks_from_sonde_id(ds: xr.Dataset):
     """Return ascent/descent boolean masks along the profile dimension (not 'level')."""
-    profile_dim = next(d for d in ds.dims if d != "level")  # in your ds: 'sonde_id'
+    profile_dim = next(d for d in ds.dims if d != "level")  
     if "sonde_id" not in ds:
         raise ValueError("Expected 'sonde_id' coord to split ascent/descent.")
     sid = ds["sonde_id"].astype(str).str.lower()
@@ -76,7 +72,7 @@ def _pooled_binned_mean(ds: xr.Dataset, var: str, zcoord: str, profile_mask: xr.
     v_flat = v_flat[good]
     z_flat = z_flat[good]
 
-    idx = np.digitize(z_flat, BIN_EDGES) - 1  # 0..N_BINS-1
+    idx = np.digitize(z_flat, BIN_EDGES) - 1  
     inside = (idx >= 0) & (idx < N_BINS)
     if inside.sum() == 0:
         return np.full(N_BINS, np.nan)
@@ -99,14 +95,10 @@ def _binned_mean_diff(ds_group: xr.Dataset, var: str, zcoord: str) -> np.ndarray
     des_mean = _pooled_binned_mean(ds_group, var, zcoord, des_mask)
     return asc_mean - des_mean
 
-# %% ---------------------------------------------------------------
-# Load sources
-
-# Meteomodem from Zarr -> bin on 'alt'
+# %%
 ds = xr.open_dataset(RAPSODI_LEVEL1, engine="zarr")
 ds_mm  = ds.where(ds.platform.isin(meteomodem_platforms), drop=True)
 
-# Vaisala from pre-binned CSVs -> compute (asc - des) arrays on BIN_CENTERS
 def load_vaisala_diff(asc_csv, des_csv):
     asc = pd.read_csv(asc_csv)
     des = pd.read_csv(des_csv)
@@ -124,14 +116,13 @@ def load_vaisala_diff(asc_csv, des_csv):
         "wind_speed_ms": "wspd_des",
     })
     m = pd.merge(asc, des, on="z_m", how="inner")
-    # Build a DataFrame indexed by BIN_CENTERS to ensure grid alignment
     grid = pd.DataFrame({"z_m": BIN_CENTERS})
     m = grid.merge(m, on="z_m", how="left")
 
     diff = {
         "p":   (m["p_asc"]   - m["p_des"]) * 100.0,   # hPa -> Pa
         "ta":  (m["ta_asc"]  - m["ta_des"]),
-        "rh":  (m["rh_asc"]  - m["rh_des"]) / 100.0,  # % -> 1
+        "rh":  (m["rh_asc"]  - m["rh_des"]),
         "wspd":(m["wspd_asc"]- m["wspd_des"]),
         "z":   m["z_m"].to_numpy()
     }
@@ -139,12 +130,13 @@ def load_vaisala_diff(asc_csv, des_csv):
 
 vai = load_vaisala_diff(VAI_ASC, VAI_DES)
 
-# Compute Meteomodem ascent−descent *binned* differences on BIN_CENTERS using 'alt'
 diff_mm = {v: _binned_mean_diff(ds_mm, v, zcoord="alt") for v in vars_to_plot}
 
-# %% ---------------------------------------------------------------
-# Plot
+if "rh" in diff_mm:
+    diff_mm["rh"] = diff_mm["rh"] * 100.0
 
+
+# %% 
 fig, axs = plt.subplots(1, 4, figsize=(15, 6), sharey=True,
                         gridspec_kw={"wspace": 0.4, "hspace": 0.6})
 
@@ -154,7 +146,6 @@ mask_tick = (BIN_CENTERS >= bottom_cutoff) & (BIN_CENTERS <= tick_mean_top_m)
 for i, var in enumerate(vars_to_plot):
     ax = axs[i]
 
-    # Vaisala (black) from CSVs
     y_v = np.asarray(vai[var], dtype=float)
     ax.plot(
         y_v[mask_plot],
@@ -163,7 +154,6 @@ for i, var in enumerate(vars_to_plot):
         zorder=2
     )
 
-    # Meteomodem (blue) from Zarr + binning on 'alt'
     y_m = np.asarray(diff_mm[var], dtype=float)
     ax.plot(
         y_m[mask_plot],
@@ -173,7 +163,6 @@ for i, var in enumerate(vars_to_plot):
         zorder=3
     )
 
-    # Zero line & cosmetics
     ax.axvline(0, color="black", linewidth=1, ls="dotted", zorder=1)
     ax.set_ylim(0, z_max_m / 1000.0)
     ax.set_xlabel(xlabels[i])
@@ -185,17 +174,15 @@ for i, var in enumerate(vars_to_plot):
     if i == 0:
         ax.set_ylabel("Altitude / km")
 
-    # Mean ticks (200–15 km)
     mean_v = float(np.nanmean(y_v[mask_tick]))
     ax.vlines(mean_v, ymin=-1.5, ymax=-0.8, color="black", linewidth=3, zorder=10, clip_on=False)
 
     mean_m = float(np.nanmean(y_m[mask_tick]))
     ax.vlines(mean_m, ymin=-1.5, ymax=-0.8, color="royalblue", linewidth=3, zorder=11, clip_on=False)
 
-# Legend once
 handles, labels = axs[0].get_legend_handles_labels()
-fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, -0.12),
-           ncol=2, frameon=True, fontsize=SIZE)
+fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, -0.13),
+           ncol=2, frameon=True, fontsize=SIZE+1)
 
 plt.tight_layout()
 

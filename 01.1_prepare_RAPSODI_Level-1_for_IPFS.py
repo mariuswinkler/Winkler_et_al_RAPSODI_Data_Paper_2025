@@ -13,22 +13,22 @@ import os
 import re
 import numpy as np
 import xarray as xr
+import pandas as pd
 from tqdm import tqdm
-
-# -------------------- CONFIG --------------------
-# (adjust the working dir if you like)
-os.chdir("/Users/marius/ownCloud/PhD/12_Orcestra_Campaign/00_ORCESTRA_Radiosondes_Winkler/Winkler_et_al_RAPSODI_Data_paper_2025")
 
 DS_VERSION = "v4.0.7"
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+os.chdir(SCRIPT_DIR)
+
 INPUT_DIRS = [
-    "/Users/marius/ownCloud/PhD/12_Orcestra_Campaign/00_ORCESTRA_Radiosondes_Winkler/level1/BCO",
-    "/Users/marius/ownCloud/PhD/12_Orcestra_Campaign/00_ORCESTRA_Radiosondes_Winkler/level1/INMG",
-    "/Users/marius/ownCloud/PhD/12_Orcestra_Campaign/00_ORCESTRA_Radiosondes_Winkler/level1/Meteor",
+    "../level1/BCO",
+    "../level1/INMG",
+    "../level1/Meteor",
 ]
 
 OUT_DIR_RAW = Path(
-    "/Users/marius/ownCloud/PhD/12_Orcestra_Campaign/00_ORCESTRA_Radiosondes_Winkler/level1/00_merged_datasets_for_IPFS"
+    "../level1/00_merged_datasets_for_IPFS"
 )
 OUT_DIR_RAW.mkdir(parents=True, exist_ok=True)
 OUT_FILE_RAW = OUT_DIR_RAW / f"RS_ORCESTRA_level1_{DS_VERSION}_raw.nc"
@@ -37,12 +37,7 @@ OUT_DIR_FINAL = OUT_DIR_RAW / "for_IPFS"
 OUT_DIR_FINAL.mkdir(parents=True, exist_ok=True)
 OUT_FILE_FINAL = OUT_DIR_FINAL / f"RS_ORCESTRA_level1_{DS_VERSION}_for_IPFS.nc"
 
-SORT_BY_LAUNCH_TIME = True  # set False to keep input order
-# ------------------------------------------------
-
-
-
-
+SORT_BY_LAUNCH_TIME = True 
 
 # %%
 # =============================================================================
@@ -148,46 +143,42 @@ def _apply_attrs(ds, attr_map, overwrite_keys=("cell_methods",)):
                     tgt.attrs[k] = v
     return ds
 
-
-def _normalize_sonde_id_ids(ds: xr.Dataset) -> xr.Dataset:
-    if "sonde_id" not in ds.coords:
+def normalize_sonde_id(ds: xr.Dataset) -> xr.Dataset:
+    if "sonde_id" not in ds.coords or "launch_time" not in ds.coords:
         return ds
+
     old_attrs = dict(ds["sonde_id"].attrs)
     vals = ds["sonde_id"].values.astype(str)
 
-    def _shorten(s: str) -> str:
-        parts = s.strip().split("__")
-        plat_raw = parts[0] if parts else s
-        dir_chunk = next((p for p in parts if p.lower() in ("ascent", "descent")), None)
-        ts = None
-        for p in reversed(parts):
-            m = re.search(r"(\d{12})", p)
-            if m:
-                ts = m.group(1); break
-        if dir_chunk and ts:
-            plat = re.sub(r"\s+", "_", plat_raw.strip())
-            out = f"{plat}_{dir_chunk}_{ts}"
-        else:
-            out = re.sub(r"\s+", "_", s.strip())
-        return re.sub(r"_+", "_", out)
+    lt = pd.to_datetime(ds["launch_time"].values)
+    ts12 = np.array([t.strftime("%Y%m%d%H%M") for t in lt], dtype=object)
 
-    seen, out = {}, []
-    for s in vals:
-        new = _shorten(s)
+    def _shorten(s: str, ts: str) -> str:
+        mdir = re.search(r"(ascent|descent)", s, flags=re.IGNORECASE)
+        if not mdir:
+            return re.sub(r"_+", "_", s.strip())
+        direction = mdir.group(1).lower()
+
+        plat = re.split(r"__|_", s.strip(), maxsplit=1)[0]
+        plat = re.sub(r"\s+", "_", plat.strip())
+
+        out = f"{plat}_{direction}_{ts}"
+        out = re.sub(r"_+", "_", out)
+        return out
+
+    out = []
+    seen = {}
+    for s, ts in zip(vals, ts12):
+        new = _shorten(s, ts)
         if new in seen:
-            seen[new] += 1; new = f"{new}_{seen[new]}"
+            seen[new] += 1
+            new = f"{new}_{seen[new]}"
         else:
             seen[new] = 0
         out.append(new)
 
-    arr = np.array(out, dtype=f"U{max(1, max(map(len, out)))}")
-
-    sonde_dim = ds["sonde_id"].dims[0] if ds["sonde_id"].ndim == 1 else None
-    if sonde_dim is not None:
-        ds = ds.assign_coords(sonde_id=(sonde_dim, arr))
-    else:
-        ds["sonde_id"].data = arr
-
+    maxlen = max(len(x) for x in out) if out else 1
+    ds = ds.assign_coords(sonde_id=("launch_time", np.array(out, dtype=f"U{maxlen}")))
     ds["sonde_id"].attrs.update(old_attrs)
     return ds
 
@@ -196,10 +187,8 @@ _COORD_SPLIT = re.compile(r"[\s,]+")
 def _scrub_cf_coordinate_references(ds: xr.Dataset, demoted: set[str]) -> xr.Dataset:
     demoted = set(map(str, demoted))
 
-    # Per-variable attrs/encodings
     for name in list(ds.variables):
         da = ds[name]
-        # attrs["coordinates"]
         val = da.attrs.get("coordinates")
         if val:
             toks = [t for t in _COORD_SPLIT.split(str(val).strip()) if t]
@@ -209,7 +198,6 @@ def _scrub_cf_coordinate_references(ds: xr.Dataset, demoted: set[str]) -> xr.Dat
             else:
                 da.attrs.pop("coordinates", None)
 
-        # encoding["coordinates"] (writers sometimes stash it here)
         val = da.encoding.get("coordinates")
         if val:
             toks = [t for t in _COORD_SPLIT.split(str(val).strip()) if t]
@@ -219,7 +207,6 @@ def _scrub_cf_coordinate_references(ds: xr.Dataset, demoted: set[str]) -> xr.Dat
             else:
                 da.encoding.pop("coordinates", None)
 
-    # Very rare, but clean a dataset-level 'coordinates' if present
     dval = ds.attrs.get("coordinates")
     if dval:
         toks = [t for t in _COORD_SPLIT.split(str(dval).strip()) if t]
@@ -244,7 +231,6 @@ def prep_level1_for_ipfs(ds: xr.Dataset) -> xr.Dataset:
     """
 
     if 'platform' in ds:
-        # make sure there is space for 4 chars, then replace
         da = ds['platform'].astype('U4')
         da = xr.where(da == 'INM', 'INMG', da)
         ds['platform'] = da
@@ -252,28 +238,25 @@ def prep_level1_for_ipfs(ds: xr.Dataset) -> xr.Dataset:
     if "sounding" not in ds.dims or "level" not in ds.dims:
         return ds
 
-    # snapshot (sounding, level) arrays to enforce shapes later
     must_keep_2d = [n for n in ds.variables if ("level" in getattr(ds[n], "dims", ()))]
     orig_2d = {n: ds[n].copy(deep=True) for n in must_keep_2d}
 
-    # identity
     ds = ds.rename({"sounding": "sonde_id"})
     if "sonde_id" not in ds.coords:
         ds = ds.set_coords("sonde_id")
     ds["sonde_id"] = ds["sonde_id"].assign_attrs(
         dict(cf_role="profile_id", long_name="sonde identifier",
              description="Unique string describing the sounding's origin (PLATFORM_DIRECTION_TIME)"))
-    ds = _normalize_sonde_id_ids(ds)
+    
+    ds = normalize_sonde_id(ds)
 
-    # ordering
     if "launch_time" in ds.coords:
         ds = ds.sortby("launch_time")
 
-    # launch position (safe: use raw data & explicit dims)
     if {"lat", "lon"}.issubset(ds.coords):
-        first_valid_lvl = ds["lat"].isnull().argmin("level")   # (sonde_id,)
-        la = ds["lat"].isel(level=first_valid_lvl).data        # (sonde_id,)
-        lo = ds["lon"].isel(level=first_valid_lvl).data        # (sonde_id,)
+        first_valid_lvl = ds["lat"].isnull().argmin("level")   
+        la = ds["lat"].isel(level=first_valid_lvl).data        
+        lo = ds["lon"].isel(level=first_valid_lvl).data        
         ds = ds.assign(
             launch_lat=(("sonde_id",), la),
             launch_lon=(("sonde_id",), lo),
@@ -283,7 +266,6 @@ def prep_level1_for_ipfs(ds: xr.Dataset) -> xr.Dataset:
         ds["launch_lon"].attrs.update(dict(standard_name="longitude", long_name="launch longitude",
                                            units="degrees_east", axis="X"))
 
-    # coordinate attrs (don’t reassign data)
     if "flight_time" in ds.coords:
         ds["flight_time"].attrs.update(dict(standard_name="time",
                                             long_name="time of recorded measurement",
@@ -308,7 +290,6 @@ def prep_level1_for_ipfs(ds: xr.Dataset) -> xr.Dataset:
         ds["level"].attrs.setdefault("long_name", "sample index within profile")
         ds["level"].attrs.setdefault("units", "1")
 
-    # data variable attrs
     attr_map = {
         "ta":   dict(standard_name="air_temperature", long_name="air temperature", units="K", cell_methods="level: point"),
         "dp":   dict(standard_name="dew_point_temperature", long_name="dew point temperature", units="K", cell_methods="level: point"),
@@ -328,7 +309,6 @@ def prep_level1_for_ipfs(ds: xr.Dataset) -> xr.Dataset:
         ds["dz"].attrs.setdefault("comment",
             "Derived from vertical changes of geopotential height; describes platform motion, not air vertical velocity.")
 
-    # restore any arrays that lost 'level' (safety net)
     for name, arr in orig_2d.items():
         if name in ds:
             expected = tuple("sonde_id" if d == "sounding" else d for d in arr.dims)
@@ -336,11 +316,9 @@ def prep_level1_for_ipfs(ds: xr.Dataset) -> xr.Dataset:
                 arr_fixed = arr.rename({"sounding": "sonde_id"})
                 ds[name] = xr.DataArray(arr_fixed.data, dims=expected)
 
-    # drop unwanted global attributes if present
     for key in ("Conventions", "dataset_version"):
         ds.attrs.pop(key, None)
         
-    # global attrs
     ds.attrs["platform"] = "INMG, RV Meteor, BCO"
     ds.attrs["title"] = (
         "RAPSODI Radiosonde Measurements during ORCESTRA (Level 1) "
@@ -352,7 +330,6 @@ def prep_level1_for_ipfs(ds: xr.Dataset) -> xr.Dataset:
     "attached to a helium-filled balloon."
     )
 
-    # demote all coords except whitelist, but never names that are also dimensions
     keep_coords = {"sonde_id", "level", "launch_time", "lat", "lon", "flight_time"}
     to_demote = sorted((set(ds.coords) - keep_coords) - set(ds.dims))
     if to_demote:
@@ -377,12 +354,3 @@ def run_part2_amend_dataset(in_file=OUT_FILE_RAW, out_file=OUT_FILE_FINAL) -> Pa
 # >>> Run this cell for Part 2
 final_ds, outfile_path = run_part2_amend_dataset()
 final_ds
-
-# %%
-
-final_ds
-
-
-# %%
-
-xr.open_dataset(outfile_path)

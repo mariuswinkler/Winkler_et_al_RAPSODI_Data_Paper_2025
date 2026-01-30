@@ -14,7 +14,7 @@ from typing import Union, Optional, List, Dict
 # Paths (relative to this script)
 # ============================================================
 SCRIPT_DIR = Path(__file__).resolve().parent
-BASE_DIR = (SCRIPT_DIR / "../level0/Meteor_Oscillating").resolve()  # repository with .mwx files
+BASE_DIR = (SCRIPT_DIR / "../level0/Meteor_Oscillating").resolve()  
 OUT_NC   = (SCRIPT_DIR / "../level1/Meteor_Oscillating/RS_ORCESTRA_Meteor_Oscillating_level1_for_IPFS.nc").resolve()
 
 XML_NAMES = {
@@ -33,17 +33,14 @@ def _zip_find_member(z: zipfile.ZipFile, wanted: str) -> Optional[str]:
 def _load_xml_text(source: Union[str, Path], filename: str) -> str:
     source = Path(source)
     if source.is_dir():
-        # From extracted folder
         p = source / filename
         if not p.exists():
-            # case-insensitive / nested
             cands = [pp for pp in source.rglob("*.xml") if pp.name.lower() == filename.lower()]
             if not cands:
                 raise FileNotFoundError(f"{filename} not found under {source}")
             p = cands[0]
         return p.read_text(encoding="utf-8", errors="ignore")
 
-    # From mwx/zip
     if source.suffix.lower() in (".mwx", ".zip"):
         with zipfile.ZipFile(source) as z:
             member = _zip_find_member(z, filename)
@@ -119,7 +116,6 @@ def resample_and_merge(ptu: pd.DataFrame, gps: pd.DataFrame, freq="1S", toleranc
     merged = merged.dropna(subset=keep)
     return merged
 
-# Saturation vapor pressure (Pa) with mt fallback
 def esat_pa(T_K: np.ndarray) -> np.ndarray:
     try:
         from moist_thermodynamics import functions as mtfunc
@@ -128,7 +124,6 @@ def esat_pa(T_K: np.ndarray) -> np.ndarray:
                 return getattr(mtfunc, name)(T_K)
     except Exception:
         pass
-    # Tetens fallback
     T_C = T_K - 273.15
     return 611.2 * np.exp(17.67 * T_C / (T_C + 243.5))
 
@@ -137,9 +132,7 @@ def dewpoint_vaisala_MW41(T_K: np.ndarray, RH_frac: np.ndarray) -> np.ndarray:
     Dew point from T [K] and RH [0..1] using the formula used by Vaisala MW41.
     (Adapted to plain numpy; unit-aware bits removed.)
     """
-    # RH in percent, clamp away from 0/100 to avoid log/div-zero
     rh_pct = np.clip(RH_frac * 100.0, 1e-3, 100.0 - 1e-6)
-    # MW41 formula pieces
     kelvin = 15.0 * np.log(100.0 / rh_pct) - 2.0 * (T_K - 273.15) + 2711.5
     t_dew = T_K * 2.0 * kelvin / (T_K * np.log(100.0 / rh_pct) + 2.0 * kelvin)
     return t_dew
@@ -151,9 +144,7 @@ def esat_wagner_pruss(T_K):
     """
     T = np.asarray(T_K, dtype=float)
 
-    # --- Try library implementations (preferred) ---
     try:
-        # common location in moist_thermodynamics
         from moist_thermodynamics import mtsvp as _mtsvp
         e = _mtsvp.liq_wagner_pruss(T)
         return np.asarray(getattr(e, "magnitude", e))
@@ -161,14 +152,12 @@ def esat_wagner_pruss(T_K):
         pass
 
     try:
-        # sometimes installed as a top-level module
         import mtsvp as _mtsvp
         e = _mtsvp.liq_wagner_pruss(T)
         return np.asarray(getattr(e, "magnitude", e))
     except Exception:
         pass
 
-    # --- Fallback: explicit IAPWS-95 formula (Wagner & Pruss) ---
     Tc = 647.096        # K
     pc = 22_064_000.0   # Pa
     tau = 1.0 - (T / Tc)
@@ -186,8 +175,8 @@ def esat_wagner_pruss(T_K):
 
 def mixing_ratio_from_p_T_RH(p_Pa: np.ndarray, T_K: np.ndarray, RH_frac: np.ndarray) -> np.ndarray:
     """Mixing ratio using Wagner–Pruss saturation pressure."""
-    e_s = esat_wagner_pruss(T_K)                 # Pa (saturation vapor pressure)
-    e   = np.clip(RH_frac, 0.0, 1.0) * e_s       # Pa (actual vapor pressure)
+    e_s = esat_wagner_pruss(T_K)                   # Pa (saturation vapor pressure)
+    e   = np.clip(RH_frac, 0.0, 1.0) * e_s         # Pa (actual vapor pressure)
     mr  = 0.62198 * e / np.maximum(p_Pa - e, 1.0)  # kg/kg
     return mr
 
@@ -212,22 +201,18 @@ def make_alt_bounds(alt: np.ndarray) -> np.ndarray:
 # Single-sounding builder (from folder or .mwx)
 # ============================================================
 def build_dataset_from_source(source: Union[str, Path]) -> xr.Dataset:
-    # Load XML texts
     ptu_text = _load_xml_text(source, XML_NAMES["ptu"])
     gps_text = _load_xml_text(source, XML_NAMES["gps"])
     snd_text = _load_xml_text(source, XML_NAMES["snd"])
 
-    # Parse
     df_ptu = _parse_xml_to_df(ptu_text)
     df_gps = _parse_xml_to_df(gps_text)
     meta   = _read_soundings_meta(snd_text)
 
-    # QC & merge
     ptu = qc_filter_ptu(df_ptu)
     gps = qc_filter_gps(df_gps)
     merged = resample_and_merge(ptu, gps, freq="1S", tolerance="600ms")
 
-    # Core series
     time = merged["DataSrvTime"].to_numpy()
     N = len(time)
     p_Pa = merged["SensorPressure"].to_numpy() * 100.0
@@ -235,15 +220,13 @@ def build_dataset_from_source(source: Union[str, Path]) -> xr.Dataset:
     RHf  = merged["Humidity"].to_numpy() / 100.0
     lat  = merged["Wgs84Latitude"].to_numpy().astype(float)
     lon  = merged["Wgs84Longitude"].to_numpy().astype(float)
-    alt_gps = merged["Wgs84Altitude"].to_numpy().astype(float)  # ellipsoidal height (WGS84)
+    alt_gps = merged["Wgs84Altitude"].to_numpy().astype(float)  
 
-    # dz: ascent/descent rate (prefer vertical velocity if present)
     if "VelocityUp" in merged:
         dz = merged["VelocityUp"].to_numpy().astype(float)
     else:
         dz = np.gradient(alt_gps, initial=0.0)
 
-    # dew point: from XML if present (case-insensitive), else compute via MW41
     colmap = {c.lower(): c for c in merged.columns}
     if "dewpointtemperature" in colmap:
         dp = merged[colmap["dewpointtemperature"]].to_numpy().astype(float)
@@ -254,7 +237,6 @@ def build_dataset_from_source(source: Union[str, Path]) -> xr.Dataset:
 
     mr = mixing_ratio_from_p_T_RH(p_Pa, T_K, RHf)
 
-    # wind from GPS velocities
     if {"VelocityNorth","VelocityEast"}.issubset(merged.columns):
         vN = merged["VelocityNorth"].to_numpy().astype(float)
         vE = merged["VelocityEast"].to_numpy().astype(float)
@@ -265,16 +247,13 @@ def build_dataset_from_source(source: Union[str, Path]) -> xr.Dataset:
         wspd = np.full(N, np.nan)
         wdir = np.full(N, np.nan)
 
-    # Launch lat/lon as first valid near surface (min altitude)
     k0 = int(np.nanargmin(alt_gps)) if N > 0 else 0
     launch_lat = float(lat[k0])
     launch_lon = float(lon[k0])
 
-    # Profile ID string: "RV Meteor__{launch_lat}__{launch_lon}__{YYYYMMDDhhmm}"
     rt = meta.get("begin_time") or (pd.Timestamp(time[0]) if N else pd.NaT)
     id_str = f"RV Meteor__{launch_lat:.5f}__{launch_lon:.5f}__{rt.strftime('%Y%m%d%H%M') if pd.notnull(rt) else 'NA'}"
 
-    # Dataset (dims: sounding, sample)
     ds = xr.Dataset(
         data_vars=dict(
             ta   = (("sounding","sample"), T_K.reshape(1, N)),
@@ -284,7 +263,6 @@ def build_dataset_from_source(source: Union[str, Path]) -> xr.Dataset:
             dz   = (("sounding","sample"), dz.reshape(1, N)),
             wspd = (("sounding","sample"), wspd.reshape(1, N)),
             wdir = (("sounding","sample"), wdir.reshape(1, N)),
-            # launch location as DATA VARS (not coords)
             launch_lat = (("sounding",), np.array([launch_lat])),
             launch_lon = (("sounding",), np.array([launch_lon])),
         ),
@@ -301,7 +279,6 @@ def build_dataset_from_source(source: Union[str, Path]) -> xr.Dataset:
         attrs={}
     )
 
-    # ---- Attributes ----
     ds["alt"].attrs.update(dict(standard_name="altitude", long_name="ellipsoidal vertical position (WGS84, from GPS)", axis="Z", positive="up", description="Altitude measured by radisonde", units="m"))
     ds["sample"].attrs.update(dict(long_name="Individual sounding level", standard_name="sample", description=""))
     ds["sounding"].attrs.update(dict(cf_role="profile_id", standard_name="sounding", long_name="sounding identifier", description="Unique string describing the soundings origin (PLATFORM_SND-DIRECTION_LAT_LON_TIME)"))        
@@ -337,12 +314,8 @@ def pad_to_sample_len(ds: xr.Dataset, target_len: int) -> xr.Dataset:
 
     new_sample = np.arange(target_len, dtype=np.int32)
 
-    # Ensure 'sample' is a proper coordinate (it is in our builder, but just in case):
     if "sample" not in ds.coords:
         ds = ds.assign_coords(sample=np.arange(cur, dtype=np.int32))
-
-    # Reindex pads all variables/coords that have 'sample' in their dims.
-    # Floats get NaN, datetime64 get NaT, ints are upcast to float if needed.
     ds_padded = ds.reindex(sample=new_sample)
 
     return ds_padded
@@ -350,30 +323,33 @@ def pad_to_sample_len(ds: xr.Dataset, target_len: int) -> xr.Dataset:
 def _normalize_sonde_id_ids(ds: xr.Dataset) -> xr.Dataset:
     if "sonde_id" not in ds.coords:
         return ds
+
     old_attrs = dict(ds["sonde_id"].attrs)
     vals = ds["sonde_id"].values.astype(str)
 
     def _shorten(s: str) -> str:
-        parts = s.strip().split("__")
+        s = s.strip()
+        parts = s.split("__")
         plat_raw = parts[0] if parts else s
-        dir_chunk = next((p for p in parts if p.lower() in ("ascent", "descent")), None)
+
         ts = None
         for p in reversed(parts):
             m = re.search(r"(\d{12})", p)
             if m:
-                ts = m.group(1); break
-        if dir_chunk and ts:
-            plat = re.sub(r"\s+", "_", plat_raw.strip())
-            out = f"{plat}_{dir_chunk}_{ts}"
-        else:
-            out = re.sub(r"\s+", "_", s.strip())
-        return re.sub(r"_+", "_", out)
+                ts = m.group(1)
+                break
+
+        plat = re.sub(r"\s+", "_", plat_raw.strip())
+
+        out = f"{plat}_{ts}" if ts else plat
+        return re.sub(r"_+", "_", out)  
 
     seen, out = {}, []
     for s in vals:
         new = _shorten(s)
         if new in seen:
-            seen[new] += 1; new = f"{new}_{seen[new]}"
+            seen[new] += 1
+            new = f"{new}_{seen[new]}"
         else:
             seen[new] = 0
         out.append(new)
@@ -386,7 +362,9 @@ def _normalize_sonde_id_ids(ds: xr.Dataset) -> xr.Dataset:
     else:
         ds["sonde_id"].data = arr
 
-    ds["sonde_id"].attrs.update(old_attrs)
+    ds["sonde_id"].attrs.update({k: v for k, v in old_attrs.items() if k != "standard_name"})
+    ds["sonde_id"].attrs["description"] = "Unique string describing the sounding's origin (PLATFORM_TIME)"
+
     return ds
 
 _COORD_SPLIT = re.compile(r"[\s,]+")
@@ -394,10 +372,8 @@ _COORD_SPLIT = re.compile(r"[\s,]+")
 def _scrub_cf_coordinate_references(ds: xr.Dataset, demoted: set[str]) -> xr.Dataset:
     demoted = set(map(str, demoted))
 
-    # Per-variable attrs/encodings
     for name in list(ds.variables):
         da = ds[name]
-        # attrs["coordinates"]
         val = da.attrs.get("coordinates")
         if val:
             toks = [t for t in _COORD_SPLIT.split(str(val).strip()) if t]
@@ -407,7 +383,6 @@ def _scrub_cf_coordinate_references(ds: xr.Dataset, demoted: set[str]) -> xr.Dat
             else:
                 da.attrs.pop("coordinates", None)
 
-        # encoding["coordinates"] (writers sometimes stash it here)
         val = da.encoding.get("coordinates")
         if val:
             toks = [t for t in _COORD_SPLIT.split(str(val).strip()) if t]
@@ -417,7 +392,6 @@ def _scrub_cf_coordinate_references(ds: xr.Dataset, demoted: set[str]) -> xr.Dat
             else:
                 da.encoding.pop("coordinates", None)
 
-    # Very rare, but clean a dataset-level 'coordinates' if present
     dval = ds.attrs.get("coordinates")
     if dval:
         toks = [t for t in _COORD_SPLIT.split(str(dval).strip()) if t]
@@ -430,31 +404,25 @@ def _scrub_cf_coordinate_references(ds: xr.Dataset, demoted: set[str]) -> xr.Dat
     return ds
 
 def finalize_level1_before_save(ds: xr.Dataset) -> xr.Dataset:
-    # 1) Rename "sounding" -> "sonde_id" (if present) and ensure it's a coord
     if "sounding" in ds.dims:
         ds = ds.rename({"sounding": "sonde_id"})
     if "sonde_id" not in ds.coords and "sonde_id" in ds.dims:
         ds = ds.set_coords("sonde_id")
 
-    # 2) Normalize sonde_id strings
     ds = _normalize_sonde_id_ids(ds)
 
     if "release_time" in ds:
         ds = ds.set_coords("release_time")
 
-    # Ensure ordering by launch_time if present
     if "release_time" in ds.coords:
         ds = ds.sortby("release_time")
 
-    # Pick vertical sample name dynamically ("sample" preferred; fallback to "level")
     vertical_idx = "sample" if "sample" in ds.dims else ("level" if "level" in ds.dims else None)
 
-    # 3) Convert all coords to data vars except the whitelist
     keep_coords = {"sonde_id", "lat", "lon", "flight_time", "release_time", "sample"}
     if vertical_idx:
         keep_coords.add(vertical_idx)
 
-    # Never demote any names that are also dimensions
     to_demote = sorted((set(map(str, ds.coords)) - keep_coords) - set(ds.dims))
     if to_demote:
         ds = ds.reset_coords(to_demote, drop=False)
@@ -464,12 +432,10 @@ def finalize_level1_before_save(ds: xr.Dataset) -> xr.Dataset:
 
 
 def main():
-    # collect all .mwx files
     mwx_files = sorted(BASE_DIR.glob("*.mwx"))
     if not mwx_files:
         raise FileNotFoundError(f"No .mwx files found under {BASE_DIR}")
 
-    # build each sounding
     dsets: List[xr.Dataset] = []
     sample_lens = []
     for fp in mwx_files:
@@ -477,14 +443,11 @@ def main():
         dsets.append(ds)
         sample_lens.append(ds.sizes["sample"])
 
-    # pad to max sample length
     target_len = int(np.max(sample_lens))
     dsets = [pad_to_sample_len(ds, target_len) for ds in dsets]
 
-    # concatenate along 'sounding'
     ds_all = xr.concat(dsets, dim="sounding")
 
-    # Global attributes
     ds_all = ds_all.assign_attrs(dict(
         title="RAPSODI Oscillating Radiosonde Measurements during ORCESTRA (Level 1)",
         summary=("Radiosondes launched from R/V Meteor during intense rain exhibited repeated "
@@ -504,10 +467,8 @@ def main():
         featureType="profile",
     ))
 
-    # finalize Level-1 dataset before saving
     ds_all = finalize_level1_before_save(ds_all)
 
-    # write
     OUT_NC.parent.mkdir(parents=True, exist_ok=True)
     ds_all.to_netcdf(OUT_NC)
     print(f"Wrote {OUT_NC} with dims {dict(ds_all.sizes)}")
@@ -517,4 +478,3 @@ if __name__ == "__main__":
 # %%
 ds = xr.open_dataset(OUT_NC)
 ds
-# %%

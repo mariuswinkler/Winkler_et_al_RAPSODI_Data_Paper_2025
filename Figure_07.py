@@ -2,8 +2,11 @@
 import xarray as xr
 import numpy as np
 import pandas as pd
-
 import matplotlib.pylab as plt
+
+# %%
+ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
+
 # %%
 SIZE = 15
 plt.rcParams["axes.labelsize"] = SIZE
@@ -15,8 +18,6 @@ plt.rcParams['xtick.direction'] = 'in'
 plt.rcParams['ytick.direction'] = 'in'
 plt.rcParams['xtick.major.size'] = 6
 plt.rcParams['ytick.major.size'] = 6
-# %%
-ds = xr.open_dataset("ipfs://bafybeid7cnw62zmzfgxcvc6q6fa267a7ivk2wcchbmkoyk4kdi5z2yj2w4", engine="zarr")
 
 # %%
 PLATFORM = 'BCO'
@@ -33,7 +34,6 @@ max_heights = ds["height"].isel(height=max_height_idx)
 median_max_height = np.nanmedian(max_heights)
 
 def max_height_per_sounding(ds_):
-    # last valid height per sounding (where lat is not NaN)
     valid = ds_["lat"].notnull()
     valid_rev = valid.isel(height=slice(None, None, -1))
     idx_from_top = valid_rev.argmax(dim="height")
@@ -45,26 +45,9 @@ max_height_per_sounding_MET  = max_height_per_sounding(ds_MET)
 max_height_per_sounding_INMG = max_height_per_sounding(ds_INMG)
 
 print(f"Median of Maximum height: {median_max_height:.2f} meters")
+
 # %%
-## Color Sets
-color_sets = [
-    ["red", "blue", "green"], #0
-    ["darkorange", "darkblue", "lime"], #1
-    ["crimson", "royalblue", "darkgreen"], #2
-    ["tomato", "mediumblue", "forestgreen"], #3
-    ["firebrick", "cornflowerblue", "mediumseagreen"], #4
-    ["darkred", "dodgerblue", "springgreen"], #5
-    ["orangered", "blueviolet", "teal"], #6
-    ["indianred", "deepskyblue", "mediumspringgreen"], #7
-    ["chocolate", "navy", "chartreuse"], #8
-    ["gold", "purple", "darkcyan"], #9
-    ["gold", "darkblue", "crimson"], #10
-    ["#BF312D", "darkblue", "#F6CA4C"] #11
-]
-
-active_color_set_index = 11
-
-active_colors = color_sets[active_color_set_index]
+active_colors = ["#BF312D", "darkblue", "#F6CA4C"]
 color_INMG = active_colors[0]
 color_Meteor = active_colors[1]
 color_BCO = active_colors[2]
@@ -72,11 +55,8 @@ color_BCO = active_colors[2]
 # %%
 fig, ax = plt.subplots(figsize=(10, 5))
 
-# Define common bin edges from 0 to 30 km with 0.5 km resolution
-bin_edges = np.linspace(0, 30, 31)  # 60 bins of width 0.5 km
+bin_edges = np.linspace(0, 30, 31)
 
-
-# Median
 ax.axvline(median_max_height/1000, color='black', ls='dashed', lw=2)
 ax.text(median_max_height/1000-1.5, 38, "Median", rotation=0,
         verticalalignment='top', color='black', fontsize=SIZE-2)
@@ -88,7 +68,7 @@ ax.hist(max_height_per_sounding_BCO.values/1000, bins=bin_edges, weights=weights
 ax.hist(max_height_per_sounding_BCO.values/1000, bins=bin_edges, weights=weights_bco, alpha=1, label='BCO',
         histtype='step', linewidth=2, color=color_BCO)
 
-max_BCO_value = max_height_per_sounding_BCO.median().values  # Maximum value
+max_BCO_value = max_height_per_sounding_BCO.median().values 
 ax.axvline(max_BCO_value / 1000, ymin=-0.07, ymax=-0.05, color=color_BCO, linewidth=2, clip_on=False)
 
 # R/V Meteor
@@ -98,7 +78,7 @@ ax.hist(max_height_per_sounding_MET.values/1000, bins=bin_edges, weights=weights
 ax.hist(max_height_per_sounding_MET.values/1000, bins=bin_edges, weights=weights_met, alpha=1, label='R/V Meteor',
         histtype='step', linewidth=2, color=color_Meteor)
 
-max_MET_value = max_height_per_sounding_MET.median().values  # Maximum value
+max_MET_value = max_height_per_sounding_MET.median().values  
 ax.axvline(max_MET_value / 1000, ymin=-0.07, ymax=-0.05, color=color_Meteor, linewidth=2, clip_on=False)
 
 # INMG
@@ -108,10 +88,9 @@ ax.hist(max_height_per_sounding_INMG.values/1000, bins=bin_edges, weights=weight
 ax.hist(max_height_per_sounding_INMG.values/1000, bins=bin_edges, weights=weights_inmg, alpha=1, label='INMG',
         histtype='step', linewidth=2, color=color_INMG)
 
-max_INMG_value = max_height_per_sounding_INMG.median().values  # Maximum value
+max_INMG_value = max_height_per_sounding_INMG.median().values  
 ax.axvline(max_INMG_value / 1000, ymin=-0.07, ymax=-0.05, color=color_INMG, linewidth=2, clip_on=False)
 
-# Styling
 ax.spines[["left", "bottom"]].set_position(("outward", 20))
 ax.spines[["right", "top"]].set_visible(False)
 ax.set_xlim(left=0, right=30)

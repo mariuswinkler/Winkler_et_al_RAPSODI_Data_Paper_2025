@@ -5,7 +5,7 @@ Rd = 287.05  # J/(kg*K)
 
 def filter_profiles(
     ds,
-    valid_height_threshold=8000,   # m
+    valid_height_threshold=8000,     # m
     near_surface_h=1000,             # m
     near_surface_min_pts=50,         # at least this many valid levels in first 1 km
     max_missing_frac=0.20,           # ≤ 20% missing in 0–8 km
@@ -28,7 +28,6 @@ def filter_profiles(
     c1 = ds1.sizes.get("launch_time", 0)
     print(f"After Step 1 (remove early RV_Meteor): {c1} ({pct(c1)})")
 
-    # Helper: OR across available variables for "has any data"
     def has_any_valid(dsub):
         masks = []
         for v in ("q", "p", "ta"):
@@ -54,7 +53,7 @@ def filter_profiles(
     # ---- Step 3: profile-sparsity in 0–8 km
     rng = ds2.sel({alt_dim: slice(0, valid_height_threshold)})
     triplet_valid = rng.q.notnull() & rng.p.notnull() & rng.ta.notnull()
-    valid_counts = triplet_valid.sum(alt_dim)  # per-profile valid count
+    valid_counts = triplet_valid.sum(alt_dim) 
 
     total_levels = rng[alt_dim].notnull().sum(alt_dim)
     sparsity_ok = valid_counts >= ((1 - max_missing_frac) * total_levels)
@@ -143,7 +142,7 @@ def calc_iwv(
 
 def add_IWV(
     ds,
-    valid_height_threshold=8000,   # m
+    valid_height_threshold=8000,     # m
     near_surface_h=1000,             # m
     near_surface_min_pts=50,         # at least this many valid levels in first 1 km
     max_missing_frac=0.20,           # ≤ 20% missing in 0–8 km
