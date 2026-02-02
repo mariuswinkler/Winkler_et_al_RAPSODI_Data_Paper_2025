@@ -16,6 +16,7 @@ import xarray as xr
 import pandas as pd
 from tqdm import tqdm
 
+# %%
 DS_VERSION = "v4.0.7"
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -178,7 +179,7 @@ def normalize_sonde_id(ds: xr.Dataset) -> xr.Dataset:
         out.append(new)
 
     maxlen = max(len(x) for x in out) if out else 1
-    ds = ds.assign_coords(sonde_id=("launch_time", np.array(out, dtype=f"U{maxlen}")))
+    ds = ds.assign_coords(sonde_id=("sonde_id", np.array(out, dtype=f"U{maxlen}")))
     ds["sonde_id"].attrs.update(old_attrs)
     return ds
 
@@ -354,3 +355,5 @@ def run_part2_amend_dataset(in_file=OUT_FILE_RAW, out_file=OUT_FILE_FINAL) -> Pa
 # >>> Run this cell for Part 2
 final_ds, outfile_path = run_part2_amend_dataset()
 final_ds
+
+# %%

@@ -5,11 +5,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # %%
-RAPSODI_LEVEL1 = "ipfs://bafybeidol5jadpzb2ibssf2lbbgdhm2zgzeg2urdyefwsxx7eelmcuumn4"
+RAPSODI_LEVEL1 = "ipfs://bafybeia34auwyvbh2rq7cn7aguzz7pulq2krdddieesm6kpysirsui7c4m"
 VAI_ASC = "Vaisala_Geopotential_Height/ALL_gps_geopot_binned10m_ascent.csv"
 VAI_DES = "Vaisala_Geopotential_Height/ALL_gps_geopot_binned10m_descent.csv"
 
 # %%
+bottom_cutoff   = 200.0     
+tick_mean_top_m = 15000.0   
+z_max_m         = 25000.0   
+DZ              = 10.0      
+SIZE            = 15
+
 plt.rcParams.update({
     "axes.labelsize": SIZE,
     "legend.fontsize": SIZE,
@@ -26,13 +32,7 @@ vars_to_plot   = ["p", "ta", "rh", "wspd"]
 xlabels        = ["Pressure / Pa", "Air Temperature / K", "Relative Humidity / %", "Wind Speed / ms$^{-1}$"]
 subplot_labels = ["(a)", "(b)", "(c)", "(d)"]
 
-bottom_cutoff   = 200.0     
-tick_mean_top_m = 15000.0   
-z_max_m         = 25000.0   
-DZ              = 10.0      
-SIZE            = 15
-
-meteomodem_platforms = ["INM"]                
+meteomodem_platforms = ["INMG"]                
 vaisala_platforms    = ["BCO", "RV_Meteor"]  
 
 Z_MIN, Z_MAX = 0.0, 31000.0
@@ -43,13 +43,12 @@ N_BINS      = len(BIN_CENTERS)
 # %% 
 def _phase_masks_from_sonde_id(ds: xr.Dataset):
     """Return ascent/descent boolean masks along the profile dimension (not 'level')."""
-    profile_dim = next(d for d in ds.dims if d != "level")  
     if "sonde_id" not in ds:
         raise ValueError("Expected 'sonde_id' coord to split ascent/descent.")
     sid = ds["sonde_id"].astype(str).str.lower()
     asc_mask = sid.str.contains("ascent")
     des_mask = sid.str.contains("descent") | sid.str.contains("decent")
-    return asc_mask, des_mask, profile_dim
+    return asc_mask, des_mask
 
 def _pooled_binned_mean(ds: xr.Dataset, var: str, zcoord: str, profile_mask: xr.DataArray) -> np.ndarray:
     """
@@ -90,7 +89,7 @@ def _pooled_binned_mean(ds: xr.Dataset, var: str, zcoord: str, profile_mask: xr.
 
 def _binned_mean_diff(ds_group: xr.Dataset, var: str, zcoord: str) -> np.ndarray:
     """Compute binned mean(ASC) − mean(DES) using vertical 'zcoord'."""
-    asc_mask, des_mask, _profile_dim = _phase_masks_from_sonde_id(ds_group)
+    asc_mask, des_mask = _phase_masks_from_sonde_id(ds_group)
     asc_mean = _pooled_binned_mean(ds_group, var, zcoord, asc_mask)
     des_mean = _pooled_binned_mean(ds_group, var, zcoord, des_mask)
     return asc_mean - des_mean
@@ -135,6 +134,10 @@ diff_mm = {v: _binned_mean_diff(ds_mm, v, zcoord="alt") for v in vars_to_plot}
 if "rh" in diff_mm:
     diff_mm["rh"] = diff_mm["rh"] * 100.0
 
+
+# %%
+
+ds
 
 # %% 
 fig, axs = plt.subplots(1, 4, figsize=(15, 6), sharey=True,

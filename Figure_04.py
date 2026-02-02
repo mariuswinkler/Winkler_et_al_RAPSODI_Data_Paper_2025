@@ -8,7 +8,7 @@ import matplotlib.cm as cm
 from matplotlib.colors import ListedColormap
 
 # %%
-osc_RS = xr.open_dataset("ipfs://bafybeidtfcyurvbw5obbhl5zlyfaoamnlhu6rrxyrmg2r2wwwidxq32oeq", engine="zarr")
+osc_RS = xr.open_dataset("ipfs://bafybeihxrajojuqzyx65qso7ama6ngvreetkdw3hqzx3sdzfb7lcmg6vaq", engine="zarr")
 pr_data = xr.open_dataset("ipfs://bafybeihjcwsecgpmsjxoo5peqafnuqfnalu3ya3vtibwl7qkm76izsnuei", engine="zarr")
 
 # %%
