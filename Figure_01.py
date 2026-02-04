@@ -221,7 +221,7 @@ for alt in altitudes_merged:
     ds_slice_main = ds.where(ds['ascent_flag'] == 0, drop=True).sel(height=alt, method='nearest').compute()
     sc = plot_the_dot(ds_slice_main, main_ax)
 
-    ds_slice_bco = ds.where(ds['ascent_flag'] == 0, drop=True).sel(height=alt, method='nearest').compute() #ds_BCO.sel(alt=alt, method='nearest').compute()
+    ds_slice_bco = ds_BCO.where(ds_BCO['ascent_flag'] == 0, drop=True).sel(height=alt, method='nearest').compute() #ds_BCO.sel(alt=alt, method='nearest').compute()
     sc = plot_the_dot(ds_slice_bco, inset1)
 
     ds_slice_inmg = ds_INMG.where(ds_INMG['ascent_flag'] == 0, drop=True).sel(height=alt, method='nearest').compute()
@@ -230,7 +230,7 @@ for alt in altitudes_merged:
     ds_slice_main = ds.where(ds['ascent_flag'] == 1, drop=True).sel(height=alt, method='nearest').compute()
     sc = plot_the_dot(ds_slice_main, main_ax)
 
-    ds_slice_bco = ds.where(ds['ascent_flag'] == 1, drop=True).sel(height=alt, method='nearest').compute() #ds_BCO.sel(alt=alt, method='nearest').compute()
+    ds_slice_bco = ds_BCO.where(ds_BCO['ascent_flag'] == 1, drop=True).sel(height=alt, method='nearest').compute() #ds_BCO.sel(alt=alt, method='nearest').compute()
     plot_the_dot(ds_slice_bco, inset1)
 
     ds_slice_inmg = ds_INMG.where(ds_INMG['ascent_flag'] == 1, drop=True).sel(height=alt, method='nearest').compute()
@@ -264,3 +264,5 @@ cbar.set_label("Height / km")
 # Save or show
 plt.savefig('./Figures/Fig01_scatter_and_insets.png', dpi=400, bbox_inches='tight', facecolor='white')
 plt.show()
+
+# %%
